@@ -60,7 +60,7 @@ property of a table entity along with some system-defined properties
     The table name must conform to the naming convention for Windows Azure
     Storage table, see
     `here <http://msdn.microsoft.com/en-us/library/windowsazure/dd179338.aspx>`_
-    for more details.
+    for more details. A new table will be created if it doesn't exist.
 
     The *protocol* specifies the protocol to transfer data between
     Windows Azure Storage and your application, ``http`` and ``https``
@@ -150,7 +150,7 @@ to the specified queue.
     added. The queue name must conform to the naming convention for
     Windows Azure Storage queue, see
     `here <http://msdn.microsoft.com/en-us/library/windowsazure/dd179349.aspx>`_
-    for more details.
+    for more details. A new queue will be created if it doesn't exist.
 
     The *protocol* specifies the protocol to transfer data between
     Windows Azure Storage and your application, ``http`` and ``https``
@@ -196,7 +196,7 @@ Windows Azure blob storage at certain timed intervals.
     outdated log files. The container name must conform to the naming
     convention for Windows Azure Storage blob container, see
     `here <http://msdn.microsoft.com/en-us/library/windowsazure/dd135715.aspx>`_
-    for more details.
+    for more details. A new container will be created if it doesn't exist.
 
     The *protocol* specifies the protocol to transfer data between
     Windows Azure Storage and your application, ``http`` and ``https``
