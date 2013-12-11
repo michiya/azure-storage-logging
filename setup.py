@@ -18,6 +18,7 @@ setup(
     description='Logging handlers that send logging output to Windows Azure Storage',
     long_description=open('README.rst').read(),
     author='Michiya Takahashi',
+    author_email='michiya.takahashi@gmail.com',
     url='https://github.com/michiya/azure-storage-logging',
     license='Apache License 2.0',
     packages=['azure_storage_logging'],
