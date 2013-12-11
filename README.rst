@@ -67,9 +67,13 @@ property of a table entity along with some system-defined properties
     are supported.
 
     You can specify the *batch* and the *batch_size* if you want to use
-    batch transaction when creating new log entities. The *batch_size* is
-    set to 100 (maximum size in a batch transaction for Windows Azure
-    table storage) by default, and is ignored when the *batch* is ``False``.
+    batch transaction when creating new log entities. If the *batch* is
+    ``True``, all new log entities will be transferred to the table
+    at a time when the number of log messages reaches the *batch_size*.
+    Otherwise, a new log entity will be transferred to the table
+    every time a logging is performed. The *batch_size* is set to 100
+    (maximum number of entities in a batch transaction for Windows Azure
+    Storage table) by default, and is ignored when the *batch* is ``False``.
 
     The *extra_properties* accepts a sequence of bare formatters for
     **logging.LogRecord** listed
@@ -280,6 +284,7 @@ three different types of storage from the logger:
                 'class': 'azure_storage_logging.handlers.TableStorageHandler',
                 'formatter': 'simple',
                 'batch': True,
+                'batch_size': 20,
                 'extra_properties': ['%(hostname)s', '%(levelname)s'],
                 'partition_key_formatter': 'cfg://formatters.partition_key',
                 'row_key_formatter': 'cfg://formatters.row_key',
