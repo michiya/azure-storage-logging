@@ -42,7 +42,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
                  protocol='http',
                  container='logs',
                  ):
-        hostname = gethostname()
+        hostname = gethostname().replace('_', '-')
         meta = {'hostname': hostname, 'process': os.getpid()}
         s = super(BlobStorageTimedRotatingFileHandler, self)
         s.__init__(filename % meta,
