@@ -264,6 +264,7 @@ class TableStorageHandler(Handler):
             # generate row key for the entity
             record.rowno = self.rowno
             row_key = self.row_key_formatter.format(record)
+            del record.rowno
             # add entitiy to the table
             self.service.insert_or_replace_entity(self.table,
                                                   partition_key,
