@@ -50,7 +50,7 @@ property of a table entity along with some system-defined properties
 | XXXXX        | XXXXXXXXX | yyyy/mm/dd ... | log message |
 +--------------+-----------+----------------+-------------+
 
-* *class* azure_storage_logging.handlers.TableStorageHandler(*account_name=None, account_key=None, protocol='http', table='logs', batch=False, batch_size=100, extra_properties=None, partition_key_formatter=None, row_key_formatter=None*)
+* *class* azure_storage_logging.handlers.TableStorageHandler(*account_name=None, account_key=None, protocol='http', table='logs', batch_size=None, extra_properties=None, partition_key_formatter=None, row_key_formatter=None*)
 
     Returns a new instance of the **TableStorageHandler** class. 
     The instance is initialized with the name and the key of your
@@ -66,14 +66,14 @@ property of a table entity along with some system-defined properties
     Windows Azure Storage and your application, ``http`` and ``https``
     are supported.
 
-    You can specify the *batch* and the *batch_size* if you want to use
-    batch transaction when creating new log entities. If the *batch* is
-    ``True``, all new log entities will be transferred to the table
-    at a time when the number of log messages reaches the *batch_size*.
-    Otherwise, a new log entity will be transferred to the table
-    every time a logging is performed. The *batch_size* is set to 100
+    You can specify the *batch_size* in an integer if you want to use
+    batch transaction when creating new log entities. If the *batch_size*
+    is greater than 1, all new log entities will be transferred to the
+    table at a time when the number of log messages reaches the *batch_size*.
+    Otherwise, a new log entity will be transferred to the table every time
+    a logging is performed. The *batch_size* must be up to 100
     (maximum number of entities in a batch transaction for Windows Azure
-    Storage table) by default, and is ignored when the *batch* is ``False``.
+    Storage table).
 
     The *extra_properties* accepts a sequence of bare formatters for
     **logging.LogRecord** listed
@@ -283,7 +283,6 @@ three different types of storage from the logger:
                 'level': 'INFO',
                 'class': 'azure_storage_logging.handlers.TableStorageHandler',
                 'formatter': 'simple',
-                'batch': True,
                 'batch_size': 20,
                 'extra_properties': ['%(hostname)s', '%(levelname)s'],
                 'partition_key_formatter': 'cfg://formatters.partition_key',

@@ -162,8 +162,8 @@ class TableStorageHandler(Handler):
                  account_key=None,
                  protocol='http',
                  table='logs',
-                 batch=False,
-                 batch_size=_MAX_BATCH_SIZE,
+                 batch=None, # deprecated
+                 batch_size=None,
                  extra_properties=None,
                  partition_key_formatter=None,
                  row_key_formatter=None,
@@ -198,11 +198,21 @@ class TableStorageHandler(Handler):
             row_key_formatter = Formatter(fmt, datefmt)
         self.row_key_formatter = row_key_formatter
         # the storage emulator doesn't support batch operations
-        self.batch = False if self.service.use_local_storage else batch
+        if batch is False or self.service.use_local_storage:
+            self.batch = False
+        elif batch_size is not None:
+            self.batch = batch_size > 1
+            if self.batch:
+                if batch_size > TableStorageHandler._MAX_BATCH_SIZE:
+                    self.batch_size = TableStorageHandler._MAX_BATCH_SIZE
+                else:
+                    self.batch_size = batch_size
+        else:
+            self.batch = batch is True
+            if self.batch:
+                # for backward compatibility
+                self.batch_size = TableStorageHandler._MAX_BATCH_SIZE
         if self.batch:
-            if batch_size > TableStorageHandler._MAX_BATCH_SIZE:
-                batch_size = TableStorageHandler._MAX_BATCH_SIZE
-            self.batch_size = batch_size
             self.current_partition_key = None
 
     def _getFormatter(self):
