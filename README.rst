@@ -25,10 +25,11 @@ type of Windows Azure Storage to send its output to. They all are subclasses
 of the standard Python logging handler classes, so you can make use of them
 in the standard ways of Python logging configuration.
 
-In addition to the standard Python formats for logging, the special format
-``%(hostname)s`` is available in the message formatter for the handlers.
-The format is introduced for ease of identifying the source of log messages
-when logs from many computers are gathered into one location.
+In addition to
+`the standard formats for logging <http://docs.python.org/2.7/library/logging.html#logrecord-attributes>`_,
+the special format ``%(hostname)s`` is also available in your message formatter
+for the handlers. The format is introduced for ease of identifying the source
+of log messages which come from many computers and go to the same storage.
 
 TableStorageHandler
 ~~~~~~~~~~~~~~~~~~~
@@ -57,10 +58,10 @@ property of a table entity along with some system-defined properties
     Windows Azure Storage account and some optional parameters.
 
     The *table* specifies the name of the table that stores log messages.
-    The table name must conform to the naming convention for Windows Azure
-    Storage table, see
+    A new table will be created if it doesn't exist. The table name must
+    conform to the naming convention for Windows Azure Storage table, see
     `the naming convention for tables <http://msdn.microsoft.com/en-us/library/windowsazure/dd179338.aspx>`_
-    for more details. A new table will be created if it doesn't exist.
+    for more details.
 
     The *protocol* specifies the protocol to transfer data between
     Windows Azure Storage and your application, ``http`` and ``https``
@@ -69,17 +70,16 @@ property of a table entity along with some system-defined properties
     You can specify the *batch_size* in an integer if you want to use
     batch transaction when creating new log entities. If the *batch_size*
     is greater than 1, all new log entities will be transferred to the
-    table at a time when the number of log messages reaches the *batch_size*.
-    Otherwise, a new log entity will be transferred to the table every time
-    a logging is performed. The *batch_size* must be up to 100
-    (maximum number of entities in a batch transaction for Windows Azure
-    Storage table).
+    table at a time when the number of new log messages reaches the
+    *batch_size*. Otherwise, a new log entity will be transferred to
+    the table every time a logging is performed. The *batch_size* must be
+    up to 100 (maximum number of entities in a batch transaction for
+    Windows Azure Storage table).
 
-    The *extra_properties* accepts a sequence of bare formatters for
-    **logging.LogRecord** listed
-    `here <http://docs.python.org/2.7/library/logging.html#logrecord-attributes>`_.
-    The handler-specific formatter ``%(hostname)s`` is also acceptable.
-    The handler assigns an entity property for every formatter specified in
+    The *extra_properties* accepts a sequence of
+    `the formats for logging <http://docs.python.org/2.7/library/logging.html#logrecord-attributes>`_.
+    The handler-specific one ``%(hostname)s`` is also acceptable.
+    The handler assigns an entity property for every format specified in
     *extra_properties*. Here is an example of using extra properties:
 
     ::
@@ -115,19 +115,21 @@ property of a table entity along with some system-defined properties
 
     You can specify an instance of your custom **logging.Formatters**
     for the *partition_key_formatter* or the *row_key_formatter*
-    if you want to implement your own partition keys or row keys for
-    the table. The default formatters will be applied for partition keys
-    and row keys if no custom formatter for them is given to the handler.
+    if you want to implement your own keys for the table.
+    The default formatters will be used for partition keys and row keys
+    if no custom formatter for them is given to the handler.
     The default values for partition keys are provided by the format
     ``%(asctime)s`` and the date format ``%Y%m%d%H%M`` (provides a unique
     value per minute). The default values for row keys are provided by the
     format ``%(asctime)s%(msecs)03d-%(hostname)s-%(process)d-%(rowno)02d``
-    and the date format ``%Y%m%d%H%M%S``. Note that the format
-    ``%(rowno)d`` is a handler-specific one only available for row keys.
-    It would be formatted to sequential number that starts from 0,
-    and a unique number in a batch. The format is introduced to avoid
-    collision of row keys generated in a batch, and it would always be
-    formatted to 0 if the *batch* is ``False``.
+    and the date format ``%Y%m%d%H%M%S``.
+
+    Note that the format ``%(rowno)d`` is a handler-specific one only
+    available for row keys. It would be formatted to a sequential and
+    unique number in a batch that starts from 0. The format is introduced
+    to avoid collision of row keys generated in a batch, and it would
+    always be formatted to 0 if you don't use batch transaction for logging
+    to the table.
 
 * setPartitionKeyFormatter(*fmt*)
 
@@ -150,11 +152,11 @@ to the specified queue.
     The instance is initialized with the name and the key of your
     Windows Azure Storage account and some optional parameters.
 
-    The *queue* specifies the name of the queue that log messages are
-    added. The queue name must conform to the naming convention for
-    Windows Azure Storage queue, see
+    The *queue* specifies the name of the queue that log messages are added.
+    A new queue will be created if it doesn't exist. The queue name must
+    conform to the naming convention for Windows Azure Storage queue, see
     `the naming convention for queues <http://msdn.microsoft.com/en-us/library/windowsazure/dd179349.aspx>`_
-    for more details. A new queue will be created if it doesn't exist.
+    for more details.
 
     The *protocol* specifies the protocol to transfer data between
     Windows Azure Storage and your application, ``http`` and ``https``
@@ -197,10 +199,11 @@ Windows Azure blob storage at certain timed intervals.
     file system.
 
     The *container* specifies the name of the blob container that stores
-    outdated log files. The container name must conform to the naming
-    convention for Windows Azure Storage blob container, see
+    outdated log files. A new container will be created if it doesn't exist.
+    The container name must conform to the naming convention for
+    Windows Azure Storage blob container, see
     `the naming convention for blob containers <http://msdn.microsoft.com/en-us/library/windowsazure/dd135715.aspx>`_
-    for more details. A new container will be created if it doesn't exist.
+    for more details.
 
     The *protocol* specifies the protocol to transfer data between
     Windows Azure Storage and your application, ``http`` and ``https``
