@@ -51,7 +51,7 @@ property of a table entity along with some system-defined properties
 | XXXXX        | XXXXXXXXX | yyyy/mm/dd ... | log message |
 +--------------+-----------+----------------+-------------+
 
-* *class* azure_storage_logging.handlers.TableStorageHandler(*account_name=None, account_key=None, protocol='http', table='logs', batch_size=None, extra_properties=None, partition_key_formatter=None, row_key_formatter=None*)
+* *class* azure_storage_logging.handlers.TableStorageHandler(*account_name=None, account_key=None, protocol='http', table='logs', batch_size=0, extra_properties=None, partition_key_formatter=None, row_key_formatter=None*)
 
     Returns a new instance of the **TableStorageHandler** class. 
     The instance is initialized with the name and the key of your
@@ -101,7 +101,7 @@ property of a table entity along with some system-defined properties
         logger.error('error message')
 
     And it will create the log entities, that have the extra properties
-    in addition to the regular property *message*, to the table like this:
+    in addition to the regular property *message*, into the table like this:
 
     +--------------+-----------+----------------+----------+-----------+---------------+
     | PartitionKey | RowKey    | Timestamp      | hostname | levelname | message       |
