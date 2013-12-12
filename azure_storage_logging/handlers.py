@@ -156,7 +156,7 @@ class TableStorageHandler(Handler):
     """
     Handler class which writes log messages to a Windows Azure Storage table.
     """
-    _MAX_BATCH_SIZE=100
+    MAX_BATCH_SIZE = 100
 
     def __init__(self, 
                  account_name=None,
@@ -202,8 +202,8 @@ class TableStorageHandler(Handler):
             self.batch = False
         else:
             self.batch = True
-            if batch_size > TableStorageHandler._MAX_BATCH_SIZE:
-                self.batch_size = TableStorageHandler._MAX_BATCH_SIZE
+            if batch_size > TableStorageHandler.MAX_BATCH_SIZE:
+                self.batch_size = TableStorageHandler.MAX_BATCH_SIZE
             else:
                 self.batch_size = batch_size
         if self.batch:
