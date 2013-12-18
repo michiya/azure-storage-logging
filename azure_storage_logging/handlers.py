@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-from logging import Formatter, Handler
+from logging import Formatter, Handler, makeLogRecord
 from logging.handlers import TimedRotatingFileHandler
 from socket import gethostname
 
@@ -209,6 +209,12 @@ class TableStorageHandler(Handler):
         if self.batch:
             self.current_partition_key = None
 
+    def _copyLogRecord(self, record):
+        copy = makeLogRecord(record.__dict__)
+        copy.exc_info = None
+        copy.exc_text = None
+        return copy
+
     def _getFormatter(self):
         """
         Get the formatter for internal use.
@@ -235,7 +241,8 @@ class TableStorageHandler(Handler):
                     self.service.begin_batch()
             # generate partition key for the entity
             record.hostname = self.hostname
-            partition_key = self.partition_key_formatter.format(record)
+            copy = self._copyLogRecord(record)
+            partition_key = self.partition_key_formatter.format(copy)
             # ensure entities in the batch all have the same patition key
             if self.batch:
                 if self.current_partition_key is not None:
@@ -252,13 +259,12 @@ class TableStorageHandler(Handler):
                     if extra.startswith('%(') and idx != -1:
                         fmt._fmt = extra
                         prop_name = extra[2:idx]
-                        value = fmt.format(record)
+                        value = fmt.format(copy)
                         entity[prop_name] = value
             entity['message'] = self.format(record)
             # generate row key for the entity
-            record.rowno = self.rowno
-            row_key = self.row_key_formatter.format(record)
-            del record.rowno
+            copy.rowno = self.rowno
+            row_key = self.row_key_formatter.format(copy)
             # add entitiy to the table
             self.service.insert_or_replace_entity(self.table,
                                                   partition_key,
