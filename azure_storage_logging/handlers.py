@@ -1,4 +1,4 @@
-# Copyright 2013 Michiya Takahashi
+# Copyright 2013-2014 Michiya Takahashi
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,14 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 import os
-from logging import Formatter, Handler, makeLogRecord
+import string
+import sys
 from logging.handlers import TimedRotatingFileHandler
 from socket import gethostname
 
 from azure.storage.blobservice import BlobService
 from azure.storage.queueservice import QueueService
 from azure.storage.tableservice import TableService
+
+_PY3 = sys.version_info[0] == 3
+
+
+def _formatName(name, params):
+    if _PY3:
+        # try all possible formattings
+        name = string.Template(name).substitute(**params)
+        name = name.format(**params)
+    return name % params
 
 
 class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
@@ -39,13 +51,13 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
                  utc=False,
                  account_name=None,
                  account_key=None,
-                 protocol='http',
+                 protocol='https',
                  container='logs',
                  ):
         hostname = gethostname()
-        meta = {'hostname': hostname, 'process': os.getpid()}
+        self.meta = {'hostname': hostname, 'process': os.getpid()}
         s = super(BlobStorageTimedRotatingFileHandler, self)
-        s.__init__(filename % meta,
+        s.__init__(filename % self.meta,
                    when=when,
                    interval=interval,
                    backupCount=1,
@@ -54,10 +66,10 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
                    utc=utc)
         self.service = BlobService(account_name, account_key, protocol)
         self.container_created = False
-        meta['hostname'] = hostname.replace('_', '-')
-        container = container % meta
+        self.meta['hostname'] = hostname.replace('_', '-')
+        container = container % self.meta
         self.container = container.lower()
-        self.hostname = hostname
+        self.meta['hostname'] = hostname
 
     def _put_log(self, dirName, fileName):
         """
@@ -66,12 +78,13 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
         if not self.container_created:
             self.service.create_container(self.container)
             self.container_created = True
-        self.service.put_blob(self.container,
-                              fileName,
-                              file(os.path.join(dirName, fileName)).read(),
-                              'BlockBlob',
-                              x_ms_blob_content_type='text/plain',
-                              )
+        with open(os.path.join(dirName, fileName), mode='rb') as f:
+            self.service.put_blob(self.container,
+                                  fileName,
+                                  f.read(),
+                                  'BlockBlob',
+                                  x_ms_blob_content_type='text/plain',
+                                  )
 
     def emit(self, record):
         """
@@ -80,7 +93,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
         Output the record to the file, catering for rollover as described
         in doRollover().
         """
-        record.hostname = self.hostname
+        record.hostname = self.meta['hostname']
         super(BlobStorageTimedRotatingFileHandler, self).emit(record)
 
     def getFilesToDelete(self):
@@ -102,7 +115,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
         return result
 
 
-class QueueStorageHandler(Handler):
+class QueueStorageHandler(logging.Handler):
     """
     Handler class which sends log messages to a Windows Azure Storage queue.
     """
@@ -110,7 +123,7 @@ class QueueStorageHandler(Handler):
     def __init__(self, 
                  account_name=None,
                  account_key=None,
-                 protocol='http',
+                 protocol='https',
                  queue='logs',
                  message_ttl=None,
                  visibility_timeout=None,
@@ -118,15 +131,13 @@ class QueueStorageHandler(Handler):
         """
         Initialize the handler.
         """
-        Handler.__init__(self)
+        logging.Handler.__init__(self)
         self.service = QueueService(account_name=account_name,
                                     account_key=account_key,
                                     protocol=protocol)
-        hostname = gethostname()
-        meta = {'hostname': hostname, 'process': os.getpid()}
-        self.queue = queue % meta
+        self.meta = {'hostname': gethostname(), 'process': os.getpid()}
+        self.queue = _formatName(queue, self.meta)
         self.queue_created = False
-        self.hostname = hostname
         self.message_ttl = message_ttl
         self.visibility_timeout = visibility_timeout
 
@@ -140,7 +151,7 @@ class QueueStorageHandler(Handler):
             if not self.queue_created:
                 self.service.create_queue(self.queue)
                 self.queue_created = True
-            record.hostname = self.hostname
+            record.hostname = self.meta['hostname']
             msg = self.format(record)
             self.service.put_message(self.queue,
                                      msg,
@@ -152,7 +163,7 @@ class QueueStorageHandler(Handler):
             self.handleError(record)
 
 
-class TableStorageHandler(Handler):
+class TableStorageHandler(logging.Handler):
     """
     Handler class which writes log messages to a Windows Azure Storage table.
     """
@@ -161,7 +172,7 @@ class TableStorageHandler(Handler):
     def __init__(self, 
                  account_name=None,
                  account_key=None,
-                 protocol='http',
+                 protocol='https',
                  table='logs',
                  batch_size=0,
                  extra_properties=None,
@@ -171,32 +182,38 @@ class TableStorageHandler(Handler):
         """
         Initialize the handler.
         """
-        Handler.__init__(self)
+        logging.Handler.__init__(self)
         self.service = TableService(account_name=account_name,
                                     account_key=account_key,
                                     protocol=protocol)
-        hostname = gethostname()
-        meta = {'hostname': hostname, 'process': os.getpid()}
-        self.table = table % meta
+        self.meta = {'hostname': gethostname(), 'process': os.getpid()}
+        self.table = _formatName(table, self.meta)
         self.table_created = False
-        self.hostname = hostname
         self.rowno = 0
-        self.extra_properties = []
-        if extra_properties:
-            self.extra_properties.extend(extra_properties)
-        self.default_formatter = Formatter()
         if not partition_key_formatter:
-            # use default format for partition key
+            # default format for partition keys
             fmt = '%(asctime)s'
             datefmt = '%Y%m%d%H%M'
-            partition_key_formatter = Formatter(fmt, datefmt)
+            partition_key_formatter = logging.Formatter(fmt, datefmt)
         self.partition_key_formatter = partition_key_formatter
         if not row_key_formatter:
-            # use default format for row key
+            # default format for row keys
             fmt = '%(asctime)s%(msecs)03d-%(hostname)s-%(process)d-%(rowno)02d'
             datefmt = '%Y%m%d%H%M%S'
-            row_key_formatter = Formatter(fmt, datefmt)
+            row_key_formatter = logging.Formatter(fmt, datefmt)
         self.row_key_formatter = row_key_formatter
+        # extra properties and formatters for them
+        self.extra_properties = extra_properties
+        if extra_properties:
+            self.extra_property_formatters = {}
+            self.extra_property_names = {}
+            for extra in extra_properties:
+                if _PY3:
+                    f = logging.Formatter(fmt=extra, style=extra[0])
+                else:
+                    f = logging.Formatter(fmt=extra)
+                self.extra_property_formatters[extra] = f
+                self.extra_property_names[extra] = self._getFormatName(extra)
         # the storage emulator doesn't support batch operations
         if batch_size <= 1 or self.service.use_local_storage:
             self.batch = False
@@ -210,22 +227,26 @@ class TableStorageHandler(Handler):
             self.current_partition_key = None
 
     def _copyLogRecord(self, record):
-        copy = makeLogRecord(record.__dict__)
+        copy = logging.makeLogRecord(record.__dict__)
         copy.exc_info = None
         copy.exc_text = None
+        if _PY3:
+            copy.stack_info = None
         return copy
 
-    def _getFormatter(self):
-        """
-        Get the formatter for internal use.
-        """
-        if self.formatter:
-            fmt = self.formatter
-            formatter = Formatter(fmt=fmt._fmt, datefmt=fmt.datefmt)
-            formatter.converter = fmt.converter
-        else:
-            formatter = self.default_formatter
-        return formatter
+    def _getFormatName(self, extra):
+        name = extra
+        style = extra[0]
+        if style == '%':
+            name = extra[2:extra.index(')')]
+        elif _PY3:
+            if style == '{':
+                name = next(string.Formatter().parse(extra))[1]
+            elif style == '$':
+                name = extra[1:]
+                if name.startswith('{'):
+                    name = name[1:-1]
+        return name
 
     def emit(self, record):
         """
@@ -240,7 +261,7 @@ class TableStorageHandler(Handler):
                 if self.batch:
                     self.service.begin_batch()
             # generate partition key for the entity
-            record.hostname = self.hostname
+            record.hostname = self.meta['hostname']
             copy = self._copyLogRecord(record)
             partition_key = self.partition_key_formatter.format(copy)
             # ensure entities in the batch all have the same patition key
@@ -253,14 +274,10 @@ class TableStorageHandler(Handler):
             # add log message and extra properties to the entity
             entity = {}
             if self.extra_properties:
-                fmt = self._getFormatter()
                 for extra in self.extra_properties:
-                    idx = extra.find(')')
-                    if extra.startswith('%(') and idx != -1:
-                        fmt._fmt = extra
-                        prop_name = extra[2:idx]
-                        value = fmt.format(copy)
-                        entity[prop_name] = value
+                    formatter = self.extra_property_formatters[extra]
+                    name = self.extra_property_names[extra]
+                    entity[name] = formatter.format(copy)
             entity['message'] = self.format(record)
             # generate row key for the entity
             copy.rowno = self.rowno
@@ -289,14 +306,31 @@ class TableStorageHandler(Handler):
             self.service.commit_batch()
             self.rowno = 0
 
+    def setFormatter(self, fmt):
+        """
+        Set the message formatter.
+        """
+        super(TableStorageHandler, self).setFormatter(fmt)
+        if self.extra_properties:
+            logging._acquireLock()
+            try:
+                for extra in self.extra_property_formatters.values():
+                    extra.converter = fmt.converter
+                    extra.datefmt = fmt.datefmt
+                    if _PY3:
+                        extra.default_time_format = fmt.default_time_format
+                        extra.default_msec_format = fmt.default_msec_format
+            finally:
+                logging._releaseLock()
+
     def setPartitionKeyFormatter(self, fmt):
         """
-        Set the formatter for the partition key.
+        Set the partition key formatter.
         """
         self.partition_key_formatter = fmt
 
     def setRowKeyFormatter(self, fmt):
         """
-        Set the formatter for the row key.
+        Set the row key formatter.
         """
         self.row_key_formatter = fmt
