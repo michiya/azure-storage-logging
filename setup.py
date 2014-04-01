@@ -9,13 +9,15 @@ CLASSIFIERS=[
     'Programming Language :: Python',
     'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 2.7',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.3',
     'Topic :: System :: Logging',
 ]
 
 setup(
     name='azure-storage-logging',
-    version='0.1.3',
-    description='Logging handlers that send logging output to Windows Azure Storage',
+    version='0.2.0',
+    description='Logging handlers to send logging output to Windows Azure Storage',
     long_description=open('README.rst').read(),
     author='Michiya Takahashi',
     author_email='michiya.takahashi@gmail.com',
