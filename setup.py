@@ -17,7 +17,7 @@ CLASSIFIERS=[
 setup(
     name='azure-storage-logging',
     version='0.2.0',
-    description='Logging handlers to send logging output to Windows Azure Storage',
+    description='Logging handlers to send logging output to Microsoft Azure Storage',
     long_description=open('README.rst').read(),
     author='Michiya Takahashi',
     author_email='michiya.takahashi@gmail.com',

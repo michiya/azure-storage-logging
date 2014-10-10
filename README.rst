@@ -2,7 +2,7 @@ azure-storage-logging
 =====================
 
 *azure-storage-logging* provides functionality to send output from
-the standard Python logging APIs to Windows Azure Storage.
+the standard Python logging APIs to Microsoft Azure Storage.
 
 Dependencies
 ------------
@@ -21,7 +21,7 @@ Usage
 
 The module **azure_storage_logging.handlers** in the package contains
 the following logging handler classes. Each of them uses a different
-type of Windows Azure Storage to send its output to. They all are subclasses
+type of Microsoft Azure Storage to send its output to. They all are subclasses
 of the standard Python logging handler classes, so you can make use of them
 in the standard ways of Python logging configuration.
 
@@ -34,7 +34,7 @@ of log messages which come from many computers and go to the same storage.
 TableStorageHandler
 ~~~~~~~~~~~~~~~~~~~
 The **TableStorageHandler** class is a subclass of **logging.Handler** class,
-and it sends log messages to Windows Azure table storage and store them
+and it sends log messages to Azure table storage and store them
 as entities in the specified table.
 
 The handler puts a formatted log message from applications in the *message*
@@ -55,16 +55,16 @@ property of a table entity along with some system-defined properties
 
     Returns a new instance of the **TableStorageHandler** class. 
     The instance is initialized with the name and the key of your
-    Windows Azure Storage account and some optional parameters.
+    Azure Storage account and some optional parameters.
 
     The *table* specifies the name of the table that stores log messages.
     A new table will be created if it doesn't exist. The table name must
-    conform to the naming convention for Windows Azure Storage table, see
+    conform to the naming convention for Azure Storage table, see
     `the naming convention for tables <http://msdn.microsoft.com/en-us/library/windowsazure/dd179338.aspx>`_
     for more details.
 
     The *protocol* specifies the protocol to transfer data between
-    Windows Azure Storage and your application, ``http`` and ``https``
+    Azure Storage and your application, ``http`` and ``https``
     are supported.
 
     You can specify the *batch_size* in an integer if you want to use
@@ -74,7 +74,7 @@ property of a table entity along with some system-defined properties
     *batch_size*. Otherwise, a new log entity will be transferred to
     the table every time a logging is performed. The *batch_size* must be
     up to 100 (maximum number of entities in a batch transaction for
-    Windows Azure Storage table).
+    Azure Storage table).
 
     The *extra_properties* accepts a sequence of
     `the formats for logging <http://docs.python.org/2.7/library/logging.html#logrecord-attributes>`_.
@@ -143,23 +143,23 @@ QueueStorageHandler
 ~~~~~~~~~~~~~~~~~~~
 
 The **QueueStorageHandler** class is a subclass of **logging.Handler** class,
-and it sends log messages to Windows Azure queue storage and enqueue them
+and it sends log messages to Azure queue storage and enqueue them
 to the specified queue.
 
 * *class* azure_storage_logging.handlers.QueueStorageHandler(*account_name=None, account_key=None, protocol='https', queue='logs', message_ttl=None, visibility_timeout=None*)
 
     Returns a new instance of the **QueueStorageHandler** class. 
     The instance is initialized with the name and the key of your
-    Windows Azure Storage account and some optional parameters.
+    Azure Storage account and some optional parameters.
 
     The *queue* specifies the name of the queue that log messages are added.
     A new queue will be created if it doesn't exist. The queue name must
-    conform to the naming convention for Windows Azure Storage queue, see
+    conform to the naming convention for Azure Storage queue, see
     `the naming convention for queues <http://msdn.microsoft.com/en-us/library/windowsazure/dd179349.aspx>`_
     for more details.
 
     The *protocol* specifies the protocol to transfer data between
-    Windows Azure Storage and your application, ``http`` and ``https``
+    Azure Storage and your application, ``http`` and ``https``
     are supported.
 
     The *message_ttl* specifies the time-to-live interval for the message,
@@ -175,7 +175,7 @@ to the specified queue.
     *message_ttl*. 
 
     You can receive log messages in the queue on other applications,
-    not necessarily written in Python, using Windows Azure Storage client
+    not necessarily written in Python, using Azure Storage client
     library.
 
 BlobStorageTimedRotatingFileHandler
@@ -184,13 +184,13 @@ BlobStorageTimedRotatingFileHandler
 The **BlobStorageTimedRotatingFileHandler** class is a subclass of
 **logging.handlers.TimedRotatingFileHandler** class, and it does the rotation
 of log files and storing the outdated log files to the specified container of
-Windows Azure blob storage at certain timed intervals.
+Azure blob storage at certain timed intervals.
 
 * *class* azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler(*filename, when='h', interval=1, encoding=None, delay=False, utc=False, account_name=None, account_key=None, protocol='https', container='logs'*)
 
     Returns a new instance of the **BlobStorageTimedRotatingFileHandler**
     class. The instance is initialized with the name and the key of your
-    Windows Azure Storage account and some optional parameters.
+    Azure Storage account and some optional parameters.
 
     See `TimedRotatingFileHandler <http://docs.python.org/2.7/library/logging.handlers.html#timedrotatingfilehandler>`_
     for its basic usage. The handler keeps the latest log file into the
@@ -201,12 +201,12 @@ Windows Azure blob storage at certain timed intervals.
     The *container* specifies the name of the blob container that stores
     outdated log files. A new container will be created if it doesn't exist.
     The container name must conform to the naming convention for
-    Windows Azure Storage blob container, see
+    Azure Storage blob container, see
     `the naming convention for blob containers <http://msdn.microsoft.com/en-us/library/windowsazure/dd135715.aspx>`_
     for more details.
 
     The *protocol* specifies the protocol to transfer data between
-    Windows Azure Storage and your application, ``http`` and ``https``
+    Azure Storage and your application, ``http`` and ``https``
     are supported.
 
     The only two formatters ``%(hostname)s`` and ``%(process)d`` are
@@ -226,7 +226,7 @@ Windows Azure blob storage at certain timed intervals.
     unlike TimedRotatingFileHandler does. The number of outdated log files
     that the handler stores in the container is unlimited.
     If you want to keep the amount of outdated log files in the container
-    in a certain number, you will need to do that using Windows Azure
+    in a certain number, you will need to do that using Azure
     management portal or some other tools.
 
 Example
@@ -316,9 +316,9 @@ Notice
 ------
 
 * Follow the instructions below if you want to use this package with
-  Windows Azure storage emulator that is bundled with Windows Azure SDK:
+  Azure storage emulator that is bundled with Microsoft Azure SDK:
 
-    * If your application is not going to run on Windows Azure compute
+    * If your application is not going to run on Azure compute
       emulator, set ``EMULATED`` environment variable as ``True`` at first.
 
     * specify nothing for the *account_name* and the *account_key*,

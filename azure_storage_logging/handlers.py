@@ -38,7 +38,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
     Handler for logging to a file, rotating the log file at certain timed
     intervals.
 
-    The outdated log file is shipped to the specified Windows Azure Storage
+    The outdated log file is shipped to the specified Azure Storage
     blob container and removed from the local file system immediately.
     """
 
@@ -117,7 +117,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
 
 class QueueStorageHandler(logging.Handler):
     """
-    Handler class which sends log messages to a Windows Azure Storage queue.
+    Handler class which sends log messages to a Azure Storage queue.
     """
 
     def __init__(self, 
@@ -165,7 +165,7 @@ class QueueStorageHandler(logging.Handler):
 
 class TableStorageHandler(logging.Handler):
     """
-    Handler class which writes log messages to a Windows Azure Storage table.
+    Handler class which writes log messages to a Azure Storage table.
     """
     MAX_BATCH_SIZE = 100
 
