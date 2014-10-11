@@ -143,10 +143,12 @@ QueueStorageHandler
 ~~~~~~~~~~~~~~~~~~~
 
 The **QueueStorageHandler** class is a subclass of **logging.Handler** class,
-and it sends log messages to Azure queue storage and enqueue them
-to the specified queue.
+and it pushes log messages to specified Azure storage queue.
 
-* *class* azure_storage_logging.handlers.QueueStorageHandler(*account_name=None, account_key=None, protocol='https', queue='logs', message_ttl=None, visibility_timeout=None*)
+You can pop log messages from the queue in other applications
+using Azure Storage client libraries.
+
+* *class* azure_storage_logging.handlers.QueueStorageHandler(*account_name=None, account_key=None, protocol='https', queue='logs', message_ttl=None, visibility_timeout=None, base64_encoding=False*)
 
     Returns a new instance of the **QueueStorageHandler** class. 
     The instance is initialized with the name and the key of your
@@ -174,9 +176,11 @@ to the specified queue.
     *message_ttl*, and should be set to a value smaller than the
     *message_ttl*. 
 
-    You can receive log messages in the queue on other applications,
-    not necessarily written in Python, using Azure Storage client
-    library.
+    The *base64_encoding* specifies the necessity for encoding
+    log text in Base64. Some of Azure Storage client libraries
+    or tools assume that text messages in Azure Storage queue
+    are encoded in Base64, so you can set *base64_encoding* as True
+    to receive log messages correctly with those libraries or tools.
 
 BlobStorageTimedRotatingFileHandler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

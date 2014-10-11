@@ -127,6 +127,7 @@ class QueueStorageHandler(logging.Handler):
                  queue='logs',
                  message_ttl=None,
                  visibility_timeout=None,
+                 base64_encoding=False,
                  ):
         """
         Initialize the handler.
@@ -140,6 +141,7 @@ class QueueStorageHandler(logging.Handler):
         self.queue_created = False
         self.message_ttl = message_ttl
         self.visibility_timeout = visibility_timeout
+        self.base64_encoding = base64_encoding
 
     def emit(self, record):
         """
@@ -152,7 +154,7 @@ class QueueStorageHandler(logging.Handler):
                 self.service.create_queue(self.queue)
                 self.queue_created = True
             record.hostname = self.meta['hostname']
-            msg = self.format(record)
+            msg = self._encode_text(self.format(record))
             self.service.put_message(self.queue,
                                      msg,
                                      self.visibility_timeout,
@@ -161,6 +163,11 @@ class QueueStorageHandler(logging.Handler):
             raise
         except:
             self.handleError(record)
+
+    def _encode_text(self, text):
+        if self.base64_encoding:
+            text = text.encode('base64')
+        return text
 
 
 class TableStorageHandler(logging.Handler):
