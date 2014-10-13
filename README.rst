@@ -60,7 +60,7 @@ property of a table entity along with some system-defined properties
     The *table* specifies the name of the table that stores log messages.
     A new table will be created if it doesn't exist. The table name must
     conform to the naming convention for Azure Storage table, see
-    `the naming convention for tables <http://msdn.microsoft.com/en-us/library/windowsazure/dd179338.aspx>`_
+    `the naming convention for tables <http://msdn.microsoft.com/library/azure/dd179338.aspx>`_
     for more details.
 
     The *protocol* specifies the protocol to transfer data between
@@ -157,7 +157,7 @@ using Azure Storage client libraries.
     The *queue* specifies the name of the queue that log messages are added.
     A new queue will be created if it doesn't exist. The queue name must
     conform to the naming convention for Azure Storage queue, see
-    `the naming convention for queues <http://msdn.microsoft.com/en-us/library/windowsazure/dd179349.aspx>`_
+    `the naming convention for queues <http://msdn.microsoft.com/library/azure/dd179349.aspx>`_
     for more details.
 
     The *protocol* specifies the protocol to transfer data between
@@ -206,7 +206,7 @@ Azure blob storage at certain timed intervals.
     outdated log files. A new container will be created if it doesn't exist.
     The container name must conform to the naming convention for
     Azure Storage blob container, see
-    `the naming convention for blob containers <http://msdn.microsoft.com/en-us/library/windowsazure/dd135715.aspx>`_
+    `the naming convention for blob containers <http://msdn.microsoft.com/library/azure/dd135715.aspx>`_
     for more details.
 
     The *protocol* specifies the protocol to transfer data between
