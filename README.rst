@@ -97,7 +97,7 @@ property of a table entity along with some system-defined properties
         
         # output log messages
         logger.info('info message')
-        logger.warn('warn message')
+        logger.warning('warning message')
         logger.error('error message')
 
     And it will create the log entities, that have the extra properties
