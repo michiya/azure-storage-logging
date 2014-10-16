@@ -1,10 +1,7 @@
 *.py[co]
 *.sw[a-z]
 *.orig
+*.egg-info
 *~
 .DS_Store
 Thumbs.db
-
-*.egg-info
-
-tests/local_settings.py
