@@ -177,10 +177,12 @@ using Azure Storage client libraries.
     *message_ttl*. 
 
     The *base64_encoding* specifies the necessity for encoding
-    log text in Base64. Some of Azure Storage client libraries
-    or tools assume that text messages in Azure Storage queue
-    are encoded in Base64, so you can set *base64_encoding* as True
-    to receive log messages correctly with those libraries or tools.
+    log text in Base64. If you set this as True, Unicode log text
+    in a message is encoded in utf-8 first and then encoded in Base64.
+    Some of Azure Storage client libraries or tools assume that
+    text messages in Azure Storage queue are encoded in Base64,
+    so you can set this as True to receive log messages correctly
+    with those libraries or tools.
 
 BlobStorageTimedRotatingFileHandler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

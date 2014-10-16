@@ -15,6 +15,7 @@ import logging
 import os
 import string
 import sys
+from base64 import b64encode
 from logging.handlers import TimedRotatingFileHandler
 from socket import gethostname
 
@@ -166,7 +167,7 @@ class QueueStorageHandler(logging.Handler):
 
     def _encode_text(self, text):
         if self.base64_encoding:
-            text = text.encode('base64')
+            text = b64encode(text.encode('utf-8')).decode('ascii')
         return text
 
 
