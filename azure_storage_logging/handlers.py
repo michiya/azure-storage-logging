@@ -196,7 +196,7 @@ class TableStorageHandler(logging.Handler):
                                     protocol=protocol)
         self.meta = {'hostname': gethostname(), 'process': os.getpid()}
         self.table = _formatName(table, self.meta)
-        self.table_created = False
+        self.ready = False
         self.rowno = 0
         if not partition_key_formatter:
             # default format for partition keys
@@ -263,11 +263,11 @@ class TableStorageHandler(logging.Handler):
         Format the record and send it to the specified table.
         """
         try:
-            if not self.table_created:
+            if not self.ready:
                 self.service.create_table(self.table)
-                self.table_created = True
                 if self.batch:
                     self.service.begin_batch()
+                self.ready = True
             # generate partition key for the entity
             record.hostname = self.meta['hostname']
             copy = self._copyLogRecord(record)
@@ -310,7 +310,7 @@ class TableStorageHandler(logging.Handler):
         """
         Ensure all logging output has been flushed.
         """
-        if self.batch:
+        if self.batch and self.ready:
             self.service.commit_batch()
             self.rowno = 0
 
