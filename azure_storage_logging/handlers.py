@@ -310,7 +310,7 @@ class TableStorageHandler(logging.Handler):
         """
         Ensure all logging output has been flushed.
         """
-        if self.batch and self.ready:
+        if self.batch and self.rowno > 0:
             self.service.commit_batch()
             self.rowno = 0
 
