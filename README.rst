@@ -4,6 +4,9 @@ azure-storage-logging
 .. image:: http://img.shields.io/pypi/v/azure-storage-logging.svg?style=flat
     :target: https://pypi.python.org/pypi/azure-storage-logging
 
+.. image:: http://img.shields.io/pypi/l/azure-storage-logging.svg?style=flat
+    :target: http://www.apache.org/licenses/LICENSE-2.0.html
+
 *azure-storage-logging* provides functionality to send output from
 the standard Python logging APIs to Microsoft Azure Storage.
 
