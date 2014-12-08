@@ -277,7 +277,6 @@ class TableStorageHandler(logging.Handler):
                 if self.current_partition_key is not None:
                     if partition_key != self.current_partition_key:
                         self.flush()
-                        self.service.begin_batch()
                 self.current_partition_key = partition_key
             # add log message and extra properties to the entity
             entity = {}
@@ -300,7 +299,6 @@ class TableStorageHandler(logging.Handler):
                 self.rowno += 1
                 if self.rowno >= self.batch_size:
                     self.flush()
-                    self.service.begin_batch()
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
@@ -311,8 +309,11 @@ class TableStorageHandler(logging.Handler):
         Ensure all logging output has been flushed.
         """
         if self.batch and self.rowno > 0:
-            self.service.commit_batch()
-            self.rowno = 0
+            try:
+                self.service.commit_batch()
+            finally:
+                self.rowno = 0
+                self.service.begin_batch()
 
     def setFormatter(self, fmt):
         """
