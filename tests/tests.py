@@ -451,10 +451,10 @@ class TableStorageHandlerTest(_TestCase):
                 name = name.split('.')[1]
         return name
 
-    def _get_partition_key_formatte_name(self, handler_name):
+    def _get_partition_key_formatter_name(self, handler_name):
         return self._get_formatter_name(handler_name, 'partition_key_formatter')
 
-    def _get_row_key_formatte_name(self, handler_name):
+    def _get_row_key_formatter_name(self, handler_name):
         return self._get_formatter_name(handler_name, 'row_key_formatter')
 
     def setUp(self):
@@ -653,7 +653,7 @@ class TableStorageHandlerTest(_TestCase):
         portions = iter(entity.PartitionKey.split('-'))
         self.assertEqual(next(portions), 'mycustompartitionkey')
         self.assertEqual(next(portions), gethostname())
-        formatter_name = self._get_partition_key_formatte_name(handler_name)
+        formatter_name = self._get_partition_key_formatter_name(handler_name)
         fmt = _get_formatter_config_value(formatter_name, 'datefmt')
         asctime = next(portions)
         try:
@@ -669,7 +669,7 @@ class TableStorageHandlerTest(_TestCase):
         portions = iter(entity.RowKey.split('-'))
         self.assertEqual(next(portions), 'mycustomrowkey')
         self.assertEqual(next(portions), gethostname())
-        formatter_name = self._get_row_key_formatte_name(handler_name)
+        formatter_name = self._get_row_key_formatter_name(handler_name)
         fmt = _get_formatter_config_value(formatter_name, 'datefmt')
         asctime = next(portions)
         try:
