@@ -249,31 +249,20 @@ class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
     def setUp(self):
         self.service = BlobService(ACCOUNT_NAME, ACCOUNT_KEY)
         # ensure that there's no log file in the container before each test
-        containers_created = [c.name for c in self.service.list_containers()]
+        containers = [c.name for c in self.service.list_containers()]
         for handler in LOGGING['handlers']:
             container = self._get_container_name(handler)
-            if container:
-                if container in containers_created:
-                    filename = _get_handler_config_value(handler, 'filename')
-                    basename = os.path.basename(filename)
-                    for blob in self.service.list_blobs(container, prefix=basename):
-                        self.service.delete_blob(container, blob.name)
-                else:
-                    self.service.create_container(container)
+            if container in containers:
+                filename = _get_handler_config_value(handler, 'filename')
+                basename = os.path.basename(filename)
+                for blob in self.service.list_blobs(container, prefix=basename):
+                    self.service.delete_blob(container, blob.name)
 
     def test_rotation(self):
         # get the logger for the test
         logger_name = 'file'
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
-
-        # confirm that there's no outdated log file in the container at this point 
-        container = self._get_container_name(handler_name)
-        filename = _get_handler_config_value(handler_name, 'filename')
-        basename = os.path.basename(filename)
-        blobs = iter(self.service.list_blobs(container, prefix=basename))
-        with self. assertRaises(StopIteration):
-            next(blobs)
 
         # perform logging
         log_text_1 = 'this will be the last line in the rotated log file.'
@@ -285,6 +274,9 @@ class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
         logger.info(log_text_2)
 
         # confirm that the outdated log file is saved in the container
+        container = self._get_container_name(handler_name)
+        filename = _get_handler_config_value(handler_name, 'filename')
+        basename = os.path.basename(filename)
         blobs = iter(self.service.list_blobs(container, prefix=basename))
         blob = next(blobs)
         self.assertTrue(blob.name.startswith(basename))
@@ -320,17 +312,12 @@ class QueueStorageHandlerTest(_TestCase):
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
 
-        # confirm that there's no message in the queue at this point
-        queue = _get_handler_config_value(handler_name, 'queue')
-        messages = iter(self.service.get_messages(queue))
-        with self.assertRaises(StopIteration):
-            next(messages)
-
         # perform logging
         log_text = 'logging test'
         logger.info(log_text)
 
         # confirm that the massage has correct log text
+        queue = _get_handler_config_value(handler_name, 'queue')
         messages = iter(self.service.get_messages(queue))
         message = next(messages)
         text_expected = "INFO %s" % log_text
@@ -348,17 +335,12 @@ class QueueStorageHandlerTest(_TestCase):
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
 
-        # confirm that there's no message in the queue at this point
-        queue = _get_handler_config_value(handler_name, 'queue')
-        messages = iter(self.service.get_messages(queue))
-        with self.assertRaises(StopIteration):
-            next(messages)
-
         # perform logging
         log_text = 'time-to-live test'
         logger.info(log_text)
 
         # confirm that the new message is visible till the ttl expires
+        queue = _get_handler_config_value(handler_name, 'queue')
         messages = iter(self.service.get_messages(queue))
         message = next(messages)
         text_expected = 'INFO %s' % log_text
@@ -383,17 +365,12 @@ class QueueStorageHandlerTest(_TestCase):
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
 
-        # confirm that there's no message in the queue at this point
-        queue = _get_handler_config_value(handler_name, 'queue')
-        messages = iter(self.service.get_messages(queue))
-        with self.assertRaises(StopIteration):
-            next(messages)
-
         # perform logging
         log_text = 'visibility test'
         logger.info(log_text)
 
         # confirm that the new message is invisible till the timeout expires
+        queue = _get_handler_config_value(handler_name, 'queue')
         messages = iter(self.service.get_messages(queue))
         with self.assertRaises(StopIteration):
             next(messages)
@@ -417,12 +394,6 @@ class QueueStorageHandlerTest(_TestCase):
         logger_name = 'base64_encoding'
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
-
-        # confirm that there's no message in the queue at this point
-        queue = _get_handler_config_value(handler_name, 'queue')
-        messages = iter(self.service.get_messages(queue))
-        with self.assertRaises(StopIteration):
-            next(messages)
 
         # perform logging
         log_text = 'Base64 encoding test'
@@ -477,12 +448,6 @@ class TableStorageHandlerTest(_TestCase):
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
 
-        # confirm that there's no entity in the table at this point
-        table = _get_handler_config_value(handler_name, 'table')
-        entities = iter(self.service.query_entities(table))
-        with self.assertRaises(StopIteration):
-            next(entities)
-
         # perform logging
         log_text = 'logging test'
         logging_started = datetime.now()
@@ -490,6 +455,7 @@ class TableStorageHandlerTest(_TestCase):
         logging_finished = datetime.now()
 
         # confirm that the entity has correct log text
+        table = _get_handler_config_value(handler_name, 'table')
         entities = iter(self.service.query_entities(table))
         entity = next(entities)
         self.assertEqual(entity.message, 'INFO %s' % log_text)
@@ -527,12 +493,6 @@ class TableStorageHandlerTest(_TestCase):
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
 
-        # confirm that there's no entity in the table at this point
-        table = _get_handler_config_value(handler_name, 'table')
-        entities = iter(self.service.query_entities(table))
-        with self.assertRaises(StopIteration):
-            next(entities)
-
         # perform logging and execute  the first batch
         batch_size = _get_handler_config_value(handler_name, 'batch_size')
         log_text = 'batch logging test'
@@ -540,6 +500,7 @@ class TableStorageHandlerTest(_TestCase):
             logger.info('%s#%02d' % (log_text, i))
 
         # confirm that only batch_size entities are committed at this point
+        table = _get_handler_config_value(handler_name, 'table')
         entities = list(iter(self.service.query_entities(table)))
         self.assertEqual(len(entities), batch_size)
         rowno_found = set()
@@ -595,23 +556,17 @@ class TableStorageHandlerTest(_TestCase):
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
         
-        # confirm that there's no entity in the table at this point
-        table = _get_handler_config_value(handler_name, 'table')
-        entities = iter(self.service.query_entities(table))
-        with self.assertRaises(StopIteration):
-            next(entities)
-
         # perform logging
         log_text = 'extra properties test'
         logger.info(log_text)
 
         # confirm that the entity has correct log text
+        table = _get_handler_config_value(handler_name, 'table')
         entities = iter(self.service.query_entities(table))
         entity = next(entities)
         self.assertEqual(entity.message, 'INFO %s' % log_text)
 
         # confirm that the extra properties have correct values
-        table = _get_handler_config_value(handler_name, 'table')
         entity = next(iter(self.service.query_entities(table)))
         self.assertEqual(entity.hostname, gethostname())
         self.assertEqual(entity.levelname, 'INFO')
@@ -630,12 +585,6 @@ class TableStorageHandlerTest(_TestCase):
         logger_name = 'custom_keys'
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
-
-        # confirm that there's no entity in the table at this point
-        table = _get_handler_config_value(handler_name, 'table')
-        entities = iter(self.service.query_entities(table))
-        with self.assertRaises(StopIteration):
-            next(entities)
 
         # perform logging
         log_text = 'custom key formatters test'
