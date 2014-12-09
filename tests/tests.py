@@ -415,6 +415,20 @@ class QueueStorageHandlerTest(_TestCase):
 
 class TableStorageHandlerTest(_TestCase):
 
+    def _divide_key(self, key):
+        divided = []
+        hostname = gethostname()
+        if key.find(hostname) >= 0:
+            preceding, hostname, remaining = key.rpartition(hostname)
+            preceding = preceding[:-1] if preceding.endswith('-') else preceding
+            divided.extend(preceding.split('-'))
+            divided.append(hostname)
+            remaining = remaining[1:] if remaining.startswith('-') else remaining
+            divided.extend(remaining.split('-'))
+        else:
+            divided.extend(key.split('-'))
+        return iter(divided)
+
     def _get_formatter_name(self, handler_name, formatter_type):
         name = _get_handler_config_value(handler_name, formatter_type)
         if name:
@@ -470,17 +484,17 @@ class TableStorageHandlerTest(_TestCase):
             self.assertEqual(entity.PartitionKey, logging_finished.strftime(fmt))
 
         # confirm that the entity has the default row key
-        portions = iter(entity.RowKey.split('-'))
-        timestamp = next(portions)
+        divided = self._divide_key(entity.RowKey)
+        timestamp = next(divided)
         fmt = '%Y%m%d%H%M%S'
         self.assertGreaterEqual(timestamp[:-3], logging_started.strftime(fmt))
         self.assertLessEqual(timestamp[:-3], logging_finished.strftime(fmt))
         self.assertRegex(timestamp[-3:], '^[0-9]{3}$')
-        self.assertEqual(next(portions), gethostname())
-        self.assertEqual(int(next(portions)), os.getpid())
-        self.assertEqual(next(portions), '00')
+        self.assertEqual(next(divided), gethostname())
+        self.assertEqual(int(next(divided)), os.getpid())
+        self.assertEqual(next(divided), '00')
         with self.assertRaises(StopIteration):
-            next(portions)
+            next(divided)
 
         # confirm that there's no more entity in the table
         with self.assertRaises(StopIteration):
@@ -599,12 +613,12 @@ class TableStorageHandlerTest(_TestCase):
         self.assertEqual(entity.message, 'INFO %s' % log_text)
 
         # confirm that the entity has a custom partitiok key
-        portions = iter(entity.PartitionKey.split('-'))
-        self.assertEqual(next(portions), 'mycustompartitionkey')
-        self.assertEqual(next(portions), gethostname())
+        divided = self._divide_key(entity.PartitionKey)
+        self.assertEqual(next(divided), 'mycustompartitionkey')
+        self.assertEqual(next(divided), gethostname())
         formatter_name = self._get_partition_key_formatter_name(handler_name)
         fmt = _get_formatter_config_value(formatter_name, 'datefmt')
-        asctime = next(portions)
+        asctime = next(divided)
         try:
             self.assertEqual(asctime, logging_started.strftime(fmt))
         except AssertionError:
@@ -612,15 +626,15 @@ class TableStorageHandlerTest(_TestCase):
                 raise
             self.assertEqual(asctime, logging_finished.strftime(fmt))
         with self.assertRaises(StopIteration):
-            next(portions)
+            next(divided)
 
         # confirm that the entity has a custom row key
-        portions = iter(entity.RowKey.split('-'))
-        self.assertEqual(next(portions), 'mycustomrowkey')
-        self.assertEqual(next(portions), gethostname())
+        divided = self._divide_key(entity.RowKey)
+        self.assertEqual(next(divided), 'mycustomrowkey')
+        self.assertEqual(next(divided), gethostname())
         formatter_name = self._get_row_key_formatter_name(handler_name)
         fmt = _get_formatter_config_value(formatter_name, 'datefmt')
-        asctime = next(portions)
+        asctime = next(divided)
         try:
             self.assertEqual(asctime, logging_started.strftime(fmt))
         except AssertionError:
@@ -628,7 +642,7 @@ class TableStorageHandlerTest(_TestCase):
                 raise
             self.assertEqual(asctime, logging_finished.strftime(fmt))
         with self.assertRaises(StopIteration):
-            next(portions)
+            next(divided)
 
         # confirm that there's no more entity in the table
         with self.assertRaises(StopIteration):
