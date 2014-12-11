@@ -17,19 +17,18 @@ from azure.storage import BlobService, QueueService, TableService
 
 
 # put your Azure Storage account name and key here
+# leave them blank if you want to run the tests on Azure Storage emulator
 ACCOUNT_NAME = ''
 ACCOUNT_KEY = ''
-
-# uncomment the next line if you run the test on Azure Storage emulator
-#os.environ.update({'EMULATED': 'True'})
 
 
 _PY3 = sys.version_info[0] == 3
 
 _LOGFILE_TMPDIR = mkdtemp()
 
-_EMULATED =  'EMULATED' in os.environ and os.environ['EMULATED'].lower() != 'false'
+_EMULATED = not ACCOUNT_NAME and not ACCOUNT_KEY
 if _EMULATED:
+    os.environ.update({'EMULATED': 'True'})
     ACCOUNT_NAME = None
     ACCOUNT_KEY = None
 
