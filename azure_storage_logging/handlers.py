@@ -1,4 +1,4 @@
-# Copyright 2013-2014 Michiya Takahashi
+# Copyright 2013-2015 Michiya Takahashi
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ import sys
 from base64 import b64encode
 from logging.handlers import TimedRotatingFileHandler
 from socket import gethostname
+from tempfile import mkstemp
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from azure.storage.blobservice import BlobService
 from azure.storage.queueservice import QueueService
@@ -54,6 +56,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
                  account_key=None,
                  protocol='https',
                  container='logs',
+                 zip_compression=False,
                  ):
         hostname = gethostname()
         self.meta = {'hostname': hostname, 'process': os.getpid()}
@@ -70,6 +73,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
         self.meta['hostname'] = hostname.replace('_', '-')
         container = container % self.meta
         self.container = container.lower()
+        self.zip_compression = zip_compression
         self.meta['hostname'] = hostname
 
     def _put_log(self, dirName, fileName):
@@ -79,13 +83,25 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
         if not self.container_created:
             self.service.create_container(self.container)
             self.container_created = True
-        with open(os.path.join(dirName, fileName), mode='rb') as f:
-            self.service.put_blob(self.container,
-                                  fileName,
-                                  f.read(),
-                                  'BlockBlob',
-                                  x_ms_blob_content_type='text/plain',
-                                  )
+        fd, tmpfile_path = None, ''
+        try:
+            file_path = os.path.join(dirName, fileName)
+            if self.zip_compression:
+                suffix, content_type = '.zip', 'application/zip'
+                fd, tmpfile_path = mkstemp(suffix=suffix)
+                with os.fdopen(fd, 'wb') as f:
+                    with ZipFile(f, 'w', ZIP_DEFLATED) as z:
+                        z.write(file_path, arcname=fileName)
+                file_path = tmpfile_path
+            else:
+                suffix, content_type = '', 'text/plain'
+            self.service.put_block_blob_from_path(self.container,
+                                                  fileName + suffix,
+                                                  file_path,
+                                                  x_ms_blob_content_type=content_type)
+        finally:
+            if self.zip_compression and fd:
+                os.remove(tmpfile_path)
 
     def emit(self, record):
         """

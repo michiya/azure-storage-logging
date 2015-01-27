@@ -13,7 +13,7 @@ the standard Python logging APIs to Microsoft Azure Storage.
 Dependencies
 ------------
 
-* azure
+* azure 0.9 or newer
 
 Installation
 ------------
@@ -198,7 +198,7 @@ The **BlobStorageTimedRotatingFileHandler** class is a subclass of
 of log files and storing the outdated log files to the specified container of
 Azure blob storage at certain timed intervals.
 
-* *class* azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler(*filename, when='h', interval=1, encoding=None, delay=False, utc=False, account_name=None, account_key=None, protocol='https', container='logs'*)
+* *class* azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler(*filename, when='h', interval=1, encoding=None, delay=False, utc=False, account_name=None, account_key=None, protocol='https', container='logs', zip_compression=False*)
 
     Returns a new instance of the **BlobStorageTimedRotatingFileHandler**
     class. The instance is initialized with the name and the key of your
@@ -220,6 +220,10 @@ Azure blob storage at certain timed intervals.
     The *protocol* specifies the protocol to transfer data between
     Azure Storage and your application, ``http`` and ``https``
     are supported.
+
+    The *zip_compression* specifies the necessity for compressing
+    every outdated log file in zip format before putting it in
+    the container.
 
     The only two formatters ``%(hostname)s`` and ``%(process)d`` are
     acceptable as a part of the *filename* or the *container*. You can save
@@ -281,6 +285,7 @@ three different types of storage from the logger:
                 'when': 'D',
                 'interval': 1,
                 'container': 'logs-%(hostname)s',
+                'zip_compression': False,
             },
             'queue': {
                 'account_name': 'mystorageaccountname',

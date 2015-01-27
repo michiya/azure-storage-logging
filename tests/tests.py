@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import unittest
+import zipfile
 
 from base64 import b64encode
 from datetime import datetime
@@ -56,17 +57,30 @@ LOGGING = {
     },
     'handlers': {
         # BlobStorageTimedFileRotatingHandlerTest
-        'file': {
+        'rotation': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
             'protocol': 'https',
             'level': 'DEBUG',
             'class': 'azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler',
             'formatter': 'verbose',
-            'filename': os.path.join(_LOGFILE_TMPDIR, 'test.log'),
+            'filename': os.path.join(_LOGFILE_TMPDIR, 'rotation.log'),
             'when': 'S',
-            'interval': 10,
+            'interval': 10, # assumes that the test begins within the interval time
             'container': 'logs-%s' % gethostname(),
+        },
+        'zip_compression': {
+            'account_name': ACCOUNT_NAME,
+            'account_key': ACCOUNT_KEY,
+            'protocol': 'https',
+            'level': 'DEBUG',
+            'class': 'azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler',
+            'formatter': 'verbose',
+            'filename': os.path.join(_LOGFILE_TMPDIR, 'zip_compression.log'),
+            'when': 'S',
+            'interval': 30, # assumes that the test begins within the interval time
+            'container': 'logs-%s' % gethostname(),
+            'zip_compression': True,
         },
         # QueueStorageHandlerTest
         'queue': {
@@ -161,8 +175,12 @@ LOGGING = {
     },
     'loggers': {
         # BlobStorageTimedFileRotatingHandlerTest
-        'file': {
-            'handlers': ['file'],
+        'rotation': {
+            'handlers': ['rotation'],
+            'level': 'DEBUG',
+        },
+        'zip_compression': {
+            'handlers': ['zip_compression'],
             'level': 'DEBUG',
         },
         # QueueStorageHandlerTest
@@ -240,10 +258,10 @@ class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
             container = container.replace('_', '-').lower()
         return container
 
-    def _get_interval_in_second(self):
+    def _get_interval_in_second(self, handler_name):
         options = {'S': 1, 'M': 60, 'H': 3600, 'D': 86400 }
-        seconds = options[_get_handler_config_value('file', 'when')]
-        return int(_get_handler_config_value('file', 'interval')) * seconds
+        seconds = options[_get_handler_config_value(handler_name, 'when')]
+        return int(_get_handler_config_value(handler_name, 'interval')) * seconds
 
     def setUp(self):
         self.service = BlobService(ACCOUNT_NAME, ACCOUNT_KEY)
@@ -259,7 +277,7 @@ class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
 
     def test_rotation(self):
         # get the logger for the test
-        logger_name = 'file'
+        logger_name = 'rotation'
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
 
@@ -268,7 +286,7 @@ class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
         logger.info(log_text_1)
 
         # perform logging again after the interval
-        time.sleep(self._get_interval_in_second()+5)
+        time.sleep(self._get_interval_in_second(handler_name)+5)
         log_text_2 = 'this will be the first line in the new log file.'
         logger.info(log_text_2)
 
@@ -279,11 +297,59 @@ class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
         blobs = iter(self.service.list_blobs(container, prefix=basename))
         blob = next(blobs)
         self.assertTrue(blob.name.startswith(basename))
-        #blob_text = self.service.get_blob_to_text(container, blob.name)
+        self.assertEqual(blob.properties.content_type, 'text/plain')
         blob_text = self.service.get_blob(container, blob.name)
         self.assertRegex(blob_text.decode('utf-8'), log_text_1)
 
-        # confirm that there's no more message in the queue
+        # confirm that there's no more blob in the container
+        with self.assertRaises(StopIteration):
+            next(blobs)
+
+        # confirm that the current log file has correct logs
+        with open(filename, 'r') as f:
+            self.assertRegex(f.readline(), log_text_2)
+
+    def test_zip_compression(self):
+        # get the logger for the test
+        logger_name = 'zip_compression'
+        logger = logging.getLogger(logger_name)
+        handler_name = _get_handler_name(logger_name)
+
+        # perform logging
+        log_text_1 = 'this will be the last line in the compressed log file.'
+        logger.info(log_text_1)
+
+        # perform logging again after the interval
+        time.sleep(self._get_interval_in_second(handler_name)+5)
+        log_text_2 = 'this will be the first line in the new log file.'
+        logger.info(log_text_2)
+
+        # confirm that the outdated log file is saved in the container
+        container = self._get_container_name(handler_name)
+        filename = _get_handler_config_value(handler_name, 'filename')
+        basename = os.path.basename(filename)
+        blobs = iter(self.service.list_blobs(container, prefix=basename))
+        blob = next(blobs)
+        self.assertTrue(blob.name.startswith(basename))
+        self.assertTrue(blob.name.endswith('.zip'))
+        self.assertEqual(blob.properties.content_type, 'application/zip')
+
+        # confirm that the blob is a zip file
+        zipfile_path = os.path.join(_LOGFILE_TMPDIR, blob.name)
+        self.service.get_blob_to_path(container, blob.name, zipfile_path)
+        self.assertTrue(zipfile.is_zipfile(zipfile_path))
+
+        # confirm that the zip file only has the rotated log file
+        extract_dir = mkdtemp(dir=_LOGFILE_TMPDIR)
+        with zipfile.ZipFile(zipfile_path, 'r') as z:
+            files = z.namelist()
+            self.assertEqual(len(files), 1)
+            self.assertEqual(files[0], blob.name.rpartition('.zip')[0])
+            z.extractall(path=extract_dir)
+        with open(os.path.join(extract_dir, files[0]), 'r') as f:
+            self.assertRegex(f.readline(), log_text_1)
+
+        # confirm that there's no more blob in the container
         with self.assertRaises(StopIteration):
             next(blobs)
 
