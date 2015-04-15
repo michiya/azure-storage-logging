@@ -26,7 +26,7 @@ setup(
     license='Apache License 2.0',
     packages=['azure_storage_logging'],
     install_requires=[
-        'azure>=0.9',
+        'azure>=0.10',
     ],
     classifiers=CLASSIFIERS,
     keywords='azure logging',

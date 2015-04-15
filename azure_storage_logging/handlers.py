@@ -57,6 +57,9 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
                  protocol='https',
                  container='logs',
                  zip_compression=False,
+                 max_connections=1,
+                 max_retries=5,
+                 retry_wait=1.0,
                  ):
         hostname = gethostname()
         self.meta = {'hostname': hostname, 'process': os.getpid()}
@@ -74,6 +77,9 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
         container = container % self.meta
         self.container = container.lower()
         self.zip_compression = zip_compression
+        self.max_connections = max_connections
+        self.max_retries = max_retries
+        self.retry_wait = retry_wait
         self.meta['hostname'] = hostname
 
     def _put_log(self, dirName, fileName):
@@ -98,7 +104,10 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
             self.service.put_block_blob_from_path(self.container,
                                                   fileName + suffix,
                                                   file_path,
-                                                  x_ms_blob_content_type=content_type)
+                                                  x_ms_blob_content_type=content_type,
+                                                  max_connections=self.max_connections,
+                                                  max_retries=self.max_retries,
+                                                  retry_wait=self.retry_wait)
         finally:
             if self.zip_compression and fd:
                 os.remove(tmpfile_path)

@@ -198,7 +198,7 @@ The **BlobStorageTimedRotatingFileHandler** class is a subclass of
 of log files and storing the outdated log files to the specified container of
 Azure blob storage at certain timed intervals.
 
-* *class* azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler(*filename, when='h', interval=1, encoding=None, delay=False, utc=False, account_name=None, account_key=None, protocol='https', container='logs', zip_compression=False*)
+* *class* azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler(*filename, when='h', interval=1, encoding=None, delay=False, utc=False, account_name=None, account_key=None, protocol='https', container='logs', zip_compression=False, max_connections=1, max_retries=5, retry_wait=1.0*)
 
     Returns a new instance of the **BlobStorageTimedRotatingFileHandler**
     class. The instance is initialized with the name and the key of your
@@ -224,6 +224,17 @@ Azure blob storage at certain timed intervals.
     The *zip_compression* specifies the necessity for compressing
     every outdated log file in zip format before putting it in
     the container.
+
+    The *max_connections* specifies a maximum number of parallel
+    connections to use when the blob size exceeds 64MB.
+    Set to 1 to upload the blob chunks sequentially.
+    Set to 2 or more to upload the blob chunks in parallel,
+    and this uses more system resources but will upload faster.
+
+    The *max_retries* specifies a number of times to retry
+    upload of blob chunk if an error occurs.
+
+    The *retry_wait* specifies sleep time in secs between retries.
 
     The only two formatters ``%(hostname)s`` and ``%(process)d`` are
     acceptable as a part of the *filename* or the *container*. You can save
