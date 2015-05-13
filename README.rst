@@ -13,7 +13,7 @@ the standard Python logging APIs to Microsoft Azure Storage.
 Dependencies
 ------------
 
-* azure 0.9 or newer
+* azure 0.10 or newer
 
 Installation
 ------------
@@ -263,7 +263,7 @@ BlobStorageTimedRotatingFileHandler
 The **BlobStorageTimedRotatingFileHandler** class is a subclass of
 **logging.handlers.TimedRotatingFileHandler** class. It performs
 log file rotation and stores the outdated one to Azure blob storage
-container storage at certain timed intervals.
+container at certain timed intervals.
 
 * *class* azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler(*filename, when='h', interval=1, encoding=None, delay=False, utc=False, account_name=None, account_key=None, protocol='https', container='logs', zip_compression=False, max_connections=1, max_retries=5, retry_wait=1.0*)
 

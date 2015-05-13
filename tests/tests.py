@@ -213,12 +213,12 @@ LOGGING = {
     },
     'loggers': {
         # BlobStorageRotatingFileHandlerTest
-        'rotation_with_parallel_upload': {
-            'handlers': ['rotation_with_parallel_upload'],
-            'level': 'DEBUG',
-        },
         'rotation': {
             'handlers': ['rotation'],
+            'level': 'DEBUG',
+        },
+        'rotation_with_parallel_upload': {
+            'handlers': ['rotation_with_parallel_upload'],
             'level': 'DEBUG',
         },
         'rotation_with_zip_compression': {
