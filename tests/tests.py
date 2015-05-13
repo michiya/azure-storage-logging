@@ -56,20 +56,57 @@ LOGGING = {
         },
     },
     'handlers': {
-        # BlobStorageTimedFileRotatingHandlerTest
+        # BlobStorageFileRotatingHandlerTest
         'rotation': {
+            'account_name': ACCOUNT_NAME,
+            'account_key': ACCOUNT_KEY,
+            'protocol': 'https',
+            'level': 'DEBUG',
+            'class': 'azure_storage_logging.handlers.BlobStorageRotatingFileHandler',
+            'filename': os.path.join(_LOGFILE_TMPDIR, 'rotation.log'),
+            'maxBytes': 1024 * 1024,
+            'delay': True,
+            'container': 'logs-%s' % gethostname().replace('_', '-'),
+        },
+        'rotation_with_parallel_upload': {
+            'account_name': ACCOUNT_NAME,
+            'account_key': ACCOUNT_KEY,
+            'protocol': 'https',
+            'level': 'DEBUG',
+            'class': 'azure_storage_logging.handlers.BlobStorageRotatingFileHandler',
+            'filename': os.path.join(_LOGFILE_TMPDIR, 'rotation_with_parallel_upload.log'),
+            'maxBytes': 1024 * 1024 * 96,
+            'delay': True,
+            'container': 'logs-%s' % gethostname().replace('_', '-'),
+            'max_connections': 4,
+        },
+        'rotation_with_zip_compression': {
+            'account_name': ACCOUNT_NAME,
+            'account_key': ACCOUNT_KEY,
+            'protocol': 'https',
+            'level': 'DEBUG',
+            'class': 'azure_storage_logging.handlers.BlobStorageRotatingFileHandler',
+            'filename': os.path.join(_LOGFILE_TMPDIR, 'zip_compression_at_rotation.log'),
+            'maxBytes': 1024 * 1024,
+            'delay': True,
+            'container': 'logs-%s' % gethostname().replace('_', '-'),
+            'zip_compression': True,
+        },
+        # BlobStorageTimedFileRotatingHandlerTest
+        'timed_rotation': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
             'protocol': 'https',
             'level': 'DEBUG',
             'class': 'azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler',
             'formatter': 'verbose',
-            'filename': os.path.join(_LOGFILE_TMPDIR, 'rotation.log'),
+            'filename': os.path.join(_LOGFILE_TMPDIR, 'timed_rotation.log'),
             'when': 'S',
-            'interval': 10, # assumes that the test begins within the interval time
-            'container': 'logs-%s' % gethostname(),
+            'interval': 10,
+            'delay': True,
+            'container': 'logs-%s' % gethostname().replace('_', '-'),
         },
-        'zip_compression': {
+        'timed_rotation_with_zip_compression': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
             'protocol': 'https',
@@ -78,8 +115,9 @@ LOGGING = {
             'formatter': 'verbose',
             'filename': os.path.join(_LOGFILE_TMPDIR, 'zip_compression.log'),
             'when': 'S',
-            'interval': 30, # assumes that the test begins within the interval time
-            'container': 'logs-%s' % gethostname(),
+            'interval': 10,
+            'delay': True,
+            'container': 'logs-%s' % gethostname().replace('_', '-'),
             'zip_compression': True,
         },
         # QueueStorageHandlerTest
@@ -174,13 +212,26 @@ LOGGING = {
         },
     },
     'loggers': {
-        # BlobStorageTimedFileRotatingHandlerTest
+        # BlobStorageRotatingFileHandlerTest
+        'rotation_with_parallel_upload': {
+            'handlers': ['rotation_with_parallel_upload'],
+            'level': 'DEBUG',
+        },
         'rotation': {
             'handlers': ['rotation'],
             'level': 'DEBUG',
         },
-        'zip_compression': {
-            'handlers': ['zip_compression'],
+        'rotation_with_zip_compression': {
+            'handlers': ['rotation_with_zip_compression'],
+            'level': 'DEBUG',
+        },
+        # BlobStorageTimedRotatingFileHandlerTest
+        'timed_rotation': {
+            'handlers': ['timed_rotation'],
+            'level': 'DEBUG',
+        },
+        'timed_rotation_with_zip_compression': {
+            'handlers': ['timed_rotation_with_zip_compression'],
             'level': 'DEBUG',
         },
         # QueueStorageHandlerTest
@@ -250,18 +301,13 @@ class _TestCase(unittest.TestCase):
             return self.assertRegexpMatches(text, regex, msg)
 
 
-class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
-    
+class _BlobStorageTestCase(_TestCase):
+
     def _get_container_name(self, handler_name):
         container = _get_handler_config_value(handler_name, 'container')
         if container:
             container = container.replace('_', '-').lower()
         return container
-
-    def _get_interval_in_second(self, handler_name):
-        options = {'S': 1, 'M': 60, 'H': 3600, 'D': 86400 }
-        seconds = options[_get_handler_config_value(handler_name, 'when')]
-        return int(_get_handler_config_value(handler_name, 'interval')) * seconds
 
     def setUp(self):
         self.service = BlobService(ACCOUNT_NAME, ACCOUNT_KEY)
@@ -275,9 +321,111 @@ class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
                 for blob in self.service.list_blobs(container, prefix=basename):
                     self.service.delete_blob(container, blob.name)
 
-    def test_rotation(self):
+
+class BlobStorageRotatingFileHandlerTest(_BlobStorageTestCase):
+
+    def _test_rotation(self, logger_name):
         # get the logger for the test
-        logger_name = 'rotation'
+        logger = logging.getLogger(logger_name)
+        handler_name = _get_handler_name(logger_name)
+
+        # perform logging
+        started_at = datetime.utcnow()
+        log_text = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit.'
+        length_per_line = len(log_text) + len(os.linesep)
+        max_bytes = _get_handler_config_value(handler_name, 'maxBytes')
+        for _ in range(max_bytes // length_per_line + 1):
+            logger.info(log_text)
+
+        # confirm that the outdated log file is saved in the container
+        container = self._get_container_name(handler_name)
+        filename = _get_handler_config_value(handler_name, 'filename')
+        basename = os.path.basename(filename)
+        blobs = iter(self.service.list_blobs(container, prefix=basename))
+        blob = next(blobs)
+        self.assertTrue(blob.name.startswith(basename))
+        rotated_at = datetime.strptime(blob.name.rpartition('.')[2],
+                                       '%Y-%m-%d_%H-%M-%S')
+        self.assertGreater(rotated_at, started_at)
+        self.assertLessEqual(rotated_at, datetime.utcnow())
+        self.assertEqual(blob.properties.content_type, 'text/plain')
+        self.assertAlmostEqual(blob.properties.content_length,
+                               max_bytes,
+                               delta=1000)
+        self.assertAlmostEqual(os.path.getsize(filename), 0, delta=1000)
+
+        # confirm that there's no more blob in the container
+        with self.assertRaises(StopIteration):
+            next(blobs)
+
+    def test_rotation(self):
+        self._test_rotation('rotation')
+
+    def test_rotation_with_parallel_upload(self):
+        self._test_rotation('rotation_with_parallel_upload')
+
+    def test_rotation_with_zip_compression(self):
+        # get the logger for the test
+        logger_name = 'rotation_with_zip_compression'
+        logger = logging.getLogger(logger_name)
+        handler_name = _get_handler_name(logger_name)
+
+        # perform logging
+        started_at = datetime.utcnow()
+        log_text = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit.'
+        length_per_line = len(log_text) + len(os.linesep)
+        max_bytes = _get_handler_config_value(handler_name, 'maxBytes')
+        for _ in range(max_bytes // length_per_line + 1):
+            logger.info(log_text)
+
+        # confirm that the outdated log file is saved in the container
+        container = self._get_container_name(handler_name)
+        filename = _get_handler_config_value(handler_name, 'filename')
+        basename = os.path.basename(filename)
+        blobs = iter(self.service.list_blobs(container, prefix=basename))
+        blob = next(blobs)
+        self.assertTrue(blob.name.startswith(basename))
+        self.assertTrue(blob.name.endswith('.zip'))
+        blob_name = blob.name.rpartition('.')[0]
+        rotated_at = datetime.strptime(blob_name.rpartition('.')[2],
+                                       '%Y-%m-%d_%H-%M-%S')
+        self.assertGreater(rotated_at, started_at)
+        self.assertLessEqual(rotated_at, datetime.utcnow())
+        self.assertEqual(blob.properties.content_type, 'application/zip')
+        self.assertLess(blob.properties.content_length, max_bytes // 2)
+
+        # confirm that the blob is a zip file
+        zipfile_path = os.path.join(_LOGFILE_TMPDIR, blob.name)
+        self.service.get_blob_to_path(container, blob.name, zipfile_path)
+        self.assertTrue(zipfile.is_zipfile(zipfile_path))
+
+        # confirm that the zip file only has the rotated log file
+        extract_dir = mkdtemp(dir=_LOGFILE_TMPDIR)
+        with zipfile.ZipFile(zipfile_path, 'r') as z:
+            files = z.namelist()
+            self.assertEqual(len(files), 1)
+            self.assertEqual(files[0], blob.name.rpartition('.zip')[0])
+            z.extractall(path=extract_dir)
+        extracted_file = os.path.join(extract_dir, files[0])
+        self.assertAlmostEqual(os.path.getsize(extracted_file),
+                               max_bytes,
+                               delta=1000)
+
+        # confirm that there's no more blob in the container
+        with self.assertRaises(StopIteration):
+            next(blobs)
+
+
+class BlobStorageTimedRotatingFileHandlerTest(_BlobStorageTestCase):
+
+    def _get_interval_in_second(self, handler_name):
+        options = {'S': 1, 'M': 60, 'H': 3600, 'D': 86400 }
+        seconds = options[_get_handler_config_value(handler_name, 'when')]
+        return int(_get_handler_config_value(handler_name, 'interval')) * seconds
+
+    def test_timed_rotation(self):
+        # get the logger for the test
+        logger_name = 'timed_rotation'
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
 
@@ -309,9 +457,9 @@ class BlobStorageTimedRotatingFileHandlerTest(_TestCase):
         with open(filename, 'r') as f:
             self.assertRegex(f.readline(), log_text_2)
 
-    def test_zip_compression(self):
+    def test_timed_rotation_with_zip_compression(self):
         # get the logger for the test
-        logger_name = 'zip_compression'
+        logger_name = 'timed_rotation_with_zip_compression'
         logger = logging.getLogger(logger_name)
         handler_name = _get_handler_name(logger_name)
 
