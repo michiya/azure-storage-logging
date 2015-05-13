@@ -16,7 +16,8 @@ import os
 import string
 import sys
 from base64 import b64encode
-from logging.handlers import TimedRotatingFileHandler
+from datetime import datetime
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from socket import gethostname
 from tempfile import mkstemp
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -36,53 +37,30 @@ def _formatName(name, params):
     return name % params
 
 
-class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
-    """
-    Handler for logging to a file, rotating the log file at certain timed
-    intervals.
-
-    The outdated log file is shipped to the specified Azure Storage
-    blob container and removed from the local file system immediately.
-    """
+class _BlobStorageFileHandler(object):
 
     def __init__(self,
-                 filename,
-                 when='h',
-                 interval=1,
-                 encoding=None,
-                 delay=False,
-                 utc=False,
-                 account_name=None,
-                 account_key=None,
-                 protocol='https',
-                 container='logs',
-                 zip_compression=False,
-                 max_connections=1,
-                 max_retries=5,
-                 retry_wait=1.0,
-                 ):
-        hostname = gethostname()
-        self.meta = {'hostname': hostname, 'process': os.getpid()}
-        s = super(BlobStorageTimedRotatingFileHandler, self)
-        s.__init__(filename % self.meta,
-                   when=when,
-                   interval=interval,
-                   backupCount=1,
-                   encoding=encoding,
-                   delay=delay,
-                   utc=utc)
+                  account_name=None,
+                  account_key=None,
+                  protocol='https',
+                  container='logs',
+                  zip_compression=False,
+                  max_connections=1,
+                  max_retries=5,
+                  retry_wait=1.0):
         self.service = BlobService(account_name, account_key, protocol)
         self.container_created = False
-        self.meta['hostname'] = hostname.replace('_', '-')
-        container = container % self.meta
-        self.container = container.lower()
+        hostname = gethostname()
+        self.meta = {'hostname': hostname.replace('_', '-'),
+                     'process': os.getpid()}
+        self.container = (container % self.meta).lower()
+        self.meta['hostname'] = hostname
         self.zip_compression = zip_compression
         self.max_connections = max_connections
         self.max_retries = max_retries
         self.retry_wait = retry_wait
-        self.meta['hostname'] = hostname
 
-    def _put_log(self, dirName, fileName):
+    def put_file_into_storage(self, dirName, fileName):
         """
         Ship the outdated log file to the specified blob container.
         """
@@ -112,6 +90,108 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
             if self.zip_compression and fd:
                 os.remove(tmpfile_path)
 
+
+class BlobStorageRotatingFileHandler(RotatingFileHandler,
+                                         _BlobStorageFileHandler):
+    """
+    Handler for logging to a file, which switches from one file
+    to the next when the current file reaches a certain size.
+
+    The outdated log file is shipped to the specified Azure Storage
+    blob container and removed from the local file system immediately.
+    """
+    def __init__(self,
+                  filename,
+                  mode='a',
+                  maxBytes=0,
+                  encoding=None,
+                  delay=False,
+                  account_name=None,
+                  account_key=None,
+                  protocol='https',
+                  container='logs',
+                  zip_compression=False,
+                  max_connections=1,
+                  max_retries=5,
+                  retry_wait=1.0):
+        meta = {'hostname': gethostname(), 'process': os.getpid()}
+        RotatingFileHandler.__init__(self,
+                                     filename % meta,
+                                     mode=mode,
+                                     maxBytes=maxBytes,
+                                     backupCount=1,
+                                     encoding=encoding,
+                                     delay=delay)
+        _BlobStorageFileHandler.__init__(self,
+                                         account_name,
+                                         account_key,
+                                         protocol,
+                                         container,
+                                         zip_compression,
+                                         max_connections,
+                                         max_retries,
+                                         retry_wait)
+
+    def doRollover(self):
+        """
+        Do a rollover, as described in __init__().
+        """
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+        dfn = "%s.%s" % (self.baseFilename,
+                         datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S'))
+        if os.path.exists(self.baseFilename):
+            os.rename(self.baseFilename, dfn)
+            self.put_file_into_storage(*os.path.split(dfn))
+            os.remove(dfn)
+        if not self.delay:
+            self.stream = self._open()
+
+
+class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler,
+                                               _BlobStorageFileHandler):
+    """
+    Handler for logging to a file, rotating the log file at certain timed
+    intervals.
+
+    The outdated log file is shipped to the specified Azure Storage
+    blob container and removed from the local file system immediately.
+    """
+    def __init__(self,
+                 filename,
+                 when='h',
+                 interval=1,
+                 encoding=None,
+                 delay=False,
+                 utc=False,
+                 account_name=None,
+                 account_key=None,
+                 protocol='https',
+                 container='logs',
+                 zip_compression=False,
+                 max_connections=1,
+                 max_retries=5,
+                 retry_wait=1.0):
+        meta = {'hostname': gethostname(), 'process': os.getpid()}
+        TimedRotatingFileHandler.__init__(self,
+                                          filename % meta,
+                                          when=when,
+                                          interval=interval,
+                                          backupCount=1,
+                                          encoding=encoding,
+                                          delay=delay,
+                                          utc=utc)
+        _BlobStorageFileHandler.__init__(self,
+                                         account_name,
+                                         account_key,
+                                         protocol,
+                                         container,
+                                         zip_compression,
+                                         max_connections,
+                                         max_retries,
+                                         retry_wait)
+
     def emit(self, record):
         """
         Emit a record.
@@ -135,7 +215,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler):
             if fileName[:plen] == prefix:
                 suffix = fileName[plen:]
                 if self.extMatch.match(suffix):
-                    self._put_log(dirName, fileName)
+                    self.put_file_into_storage(dirName, fileName)
                     result.append(os.path.join(dirName, fileName))
         # delete the stored log file from the local file system immediately
         return result
@@ -145,7 +225,6 @@ class QueueStorageHandler(logging.Handler):
     """
     Handler class which sends log messages to a Azure Storage queue.
     """
-
     def __init__(self, 
                  account_name=None,
                  account_key=None,
