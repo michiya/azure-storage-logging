@@ -14,7 +14,9 @@ from socket import gethostname
 from threading import current_thread
 from tempfile import mkdtemp
 
-from azure.storage import BlobService, QueueService, TableService
+from azure.storage.blob import BlobService
+from azure.storage.queue import QueueService
+from azure.storage.table import TableService
 
 
 # put your Azure Storage account name and key here

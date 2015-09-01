@@ -13,7 +13,7 @@ the standard Python logging APIs to Microsoft Azure Storage.
 Dependencies
 ------------
 
-* azure 0.10 or newer
+* azure-storage
 
 Installation
 ------------

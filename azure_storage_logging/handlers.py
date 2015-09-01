@@ -22,9 +22,9 @@ from socket import gethostname
 from tempfile import mkstemp
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from azure.storage.blobservice import BlobService
-from azure.storage.queueservice import QueueService
-from azure.storage.tableservice import TableService
+from azure.storage.blob import BlobService
+from azure.storage.queue import QueueService
+from azure.storage.table import TableService
 
 _PY3 = sys.version_info[0] == 3
 
