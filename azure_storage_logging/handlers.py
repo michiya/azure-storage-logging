@@ -22,7 +22,8 @@ from socket import gethostname
 from tempfile import mkstemp
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from azure.storage.blob import BlobService
+from azure.storage.blob import BlockBlobService
+from azure.storage.blob.models import ContentSettings
 from azure.storage.queue import QueueService
 from azure.storage.table import TableService
 
@@ -48,7 +49,7 @@ class _BlobStorageFileHandler(object):
                   max_connections=1,
                   max_retries=5,
                   retry_wait=1.0):
-        self.service = BlobService(account_name, account_key, protocol)
+        self.service = BlockBlobService(account_name, account_key, protocol)
         self.container_created = False
         hostname = gethostname()
         self.meta = {'hostname': hostname.replace('_', '-'),
@@ -79,13 +80,12 @@ class _BlobStorageFileHandler(object):
                 file_path = tmpfile_path
             else:
                 suffix, content_type = '', 'text/plain'
-            self.service.put_block_blob_from_path(self.container,
-                                                  fileName + suffix,
-                                                  file_path,
-                                                  x_ms_blob_content_type=content_type,
-                                                  max_connections=self.max_connections,
-                                                  max_retries=self.max_retries,
-                                                  retry_wait=self.retry_wait)
+            self.service.create_blob_from_path(container_name=self.container,
+                                               blob_name=fileName+suffix,
+                                               file_path=fileName,
+                                               content_settings=ContentSettings(content_type=content_type),
+                                               max_connections=self.max_connections
+                                               )  # max_retries and retry_wait no longer arguments in azure 0.33
         finally:
             if self.zip_compression and fd:
                 os.remove(tmpfile_path)
