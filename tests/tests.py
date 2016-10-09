@@ -14,7 +14,7 @@ from socket import gethostname
 from threading import current_thread
 from tempfile import mkdtemp
 
-from azure.storage.blob import BlobService
+from azure.storage.blob import BlockBlobService
 from azure.storage.queue import QueueService
 from azure.storage.table import TableService
 
@@ -31,7 +31,6 @@ _LOGFILE_TMPDIR = mkdtemp()
 
 _EMULATED = not ACCOUNT_NAME and not ACCOUNT_KEY
 if _EMULATED:
-    os.environ.update({'EMULATED': 'True'})
     ACCOUNT_NAME = None
     ACCOUNT_KEY = None
 
@@ -62,7 +61,7 @@ LOGGING = {
         'rotation': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'level': 'DEBUG',
             'class': 'azure_storage_logging.handlers.BlobStorageRotatingFileHandler',
             'filename': os.path.join(_LOGFILE_TMPDIR, 'rotation.log'),
@@ -73,7 +72,7 @@ LOGGING = {
         'rotation_with_parallel_upload': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'level': 'DEBUG',
             'class': 'azure_storage_logging.handlers.BlobStorageRotatingFileHandler',
             'filename': os.path.join(_LOGFILE_TMPDIR, 'rotation_with_parallel_upload.log'),
@@ -85,7 +84,7 @@ LOGGING = {
         'rotation_with_zip_compression': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'level': 'DEBUG',
             'class': 'azure_storage_logging.handlers.BlobStorageRotatingFileHandler',
             'filename': os.path.join(_LOGFILE_TMPDIR, 'zip_compression_at_rotation.log'),
@@ -98,7 +97,7 @@ LOGGING = {
         'timed_rotation': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'level': 'DEBUG',
             'class': 'azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler',
             'formatter': 'verbose',
@@ -111,7 +110,7 @@ LOGGING = {
         'timed_rotation_with_zip_compression': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'level': 'DEBUG',
             'class': 'azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler',
             'formatter': 'verbose',
@@ -126,7 +125,7 @@ LOGGING = {
         'queue': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'queue': 'queue-storage-handler-test',
             'level': 'INFO',
             'class': 'azure_storage_logging.handlers.QueueStorageHandler',
@@ -135,7 +134,7 @@ LOGGING = {
         'message_ttl': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'queue': 'queue-storage-handler-test',
             'level': 'INFO',
             'class': 'azure_storage_logging.handlers.QueueStorageHandler',
@@ -145,7 +144,7 @@ LOGGING = {
         'visibility_timeout': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'queue': 'queue-storage-handler-test',
             'level': 'INFO',
             'class': 'azure_storage_logging.handlers.QueueStorageHandler',
@@ -155,7 +154,7 @@ LOGGING = {
         'base64_encoding': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'queue': 'queue-storage-handler-test',
             'level': 'INFO',
             'class': 'azure_storage_logging.handlers.QueueStorageHandler',
@@ -166,7 +165,7 @@ LOGGING = {
         'table': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'table': 'TableStorageHandlerTest',
             'level': 'INFO',
             'class': 'azure_storage_logging.handlers.TableStorageHandler',
@@ -175,7 +174,7 @@ LOGGING = {
         'batch': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'table': 'TableStorageHandlerTest',
             'level': 'INFO',
             'class': 'azure_storage_logging.handlers.TableStorageHandler',
@@ -186,7 +185,7 @@ LOGGING = {
         'extra_properties': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'table': 'TableStorageHandlerTest',
             'level': 'INFO',
             'class': 'azure_storage_logging.handlers.TableStorageHandler',
@@ -204,7 +203,7 @@ LOGGING = {
         'custom_keys': {
             'account_name': ACCOUNT_NAME,
             'account_key': ACCOUNT_KEY,
-            'protocol': 'https',
+            'is_emulated': _EMULATED,
             'table': 'TableStorageHandlerTest',
             'level': 'INFO',
             'class': 'azure_storage_logging.handlers.TableStorageHandler',
@@ -312,7 +311,9 @@ class _BlobStorageTestCase(_TestCase):
         return container
 
     def setUp(self):
-        self.service = BlobService(ACCOUNT_NAME, ACCOUNT_KEY)
+        self.service = BlockBlobService(account_name=ACCOUNT_NAME,
+                                        account_key=ACCOUNT_KEY,
+                                        is_emulated=_EMULATED)
         # ensure that there's no log file in the container before each test
         containers = [c.name for c in self.service.list_containers()]
         for handler in LOGGING['handlers']:
@@ -350,7 +351,7 @@ class BlobStorageRotatingFileHandlerTest(_BlobStorageTestCase):
                                        '%Y-%m-%d_%H-%M-%S')
         self.assertGreater(rotated_at, started_at)
         self.assertLessEqual(rotated_at, datetime.utcnow())
-        self.assertEqual(blob.properties.content_type, 'text/plain')
+        self.assertEqual(blob.properties.content_settings.content_type, 'text/plain')
         self.assertAlmostEqual(blob.properties.content_length,
                                max_bytes,
                                delta=1000)
@@ -393,7 +394,7 @@ class BlobStorageRotatingFileHandlerTest(_BlobStorageTestCase):
                                        '%Y-%m-%d_%H-%M-%S')
         self.assertGreater(rotated_at, started_at)
         self.assertLessEqual(rotated_at, datetime.utcnow())
-        self.assertEqual(blob.properties.content_type, 'application/zip')
+        self.assertEqual(blob.properties.content_settings.content_type, 'application/zip')
         self.assertLess(blob.properties.content_length, max_bytes // 2)
 
         # confirm that the blob is a zip file
@@ -447,9 +448,9 @@ class BlobStorageTimedRotatingFileHandlerTest(_BlobStorageTestCase):
         blobs = iter(self.service.list_blobs(container, prefix=basename))
         blob = next(blobs)
         self.assertTrue(blob.name.startswith(basename))
-        self.assertEqual(blob.properties.content_type, 'text/plain')
-        blob_text = self.service.get_blob(container, blob.name)
-        self.assertRegex(blob_text.decode('utf-8'), log_text_1)
+        self.assertEqual(blob.properties.content_settings.content_type, 'text/plain')
+        blob_text = self.service.get_blob_to_text(container, blob.name)
+        self.assertRegex(blob_text.content, log_text_1)
 
         # confirm that there's no more blob in the container
         with self.assertRaises(StopIteration):
@@ -482,7 +483,7 @@ class BlobStorageTimedRotatingFileHandlerTest(_BlobStorageTestCase):
         blob = next(blobs)
         self.assertTrue(blob.name.startswith(basename))
         self.assertTrue(blob.name.endswith('.zip'))
-        self.assertEqual(blob.properties.content_type, 'application/zip')
+        self.assertEqual(blob.properties.content_settings.content_type, 'application/zip')
 
         # confirm that the blob is a zip file
         zipfile_path = os.path.join(_LOGFILE_TMPDIR, blob.name)
@@ -511,7 +512,9 @@ class BlobStorageTimedRotatingFileHandlerTest(_BlobStorageTestCase):
 class QueueStorageHandlerTest(_TestCase):
 
     def setUp(self):
-        self.service = QueueService(ACCOUNT_NAME, ACCOUNT_KEY)
+        self.service = QueueService(account_name=ACCOUNT_NAME,
+                                    account_key=ACCOUNT_KEY,
+                                    is_emulated=_EMULATED)
         # ensure that there's no message on the queue before each test
         queues = set()
         for cfg in LOGGING['handlers'].values():
@@ -538,7 +541,7 @@ class QueueStorageHandlerTest(_TestCase):
         text_expected = "INFO %s" % log_text
         if _get_handler_config_value(handler_name, 'base64_encoding'):
             text_expected = _base64_encode(text_expected)
-        self.assertEqual(message.message_text, text_expected)
+        self.assertEqual(message.content, text_expected)
 
         # confirm that there's no more message in the queue
         with self.assertRaises(StopIteration):
@@ -561,7 +564,7 @@ class QueueStorageHandlerTest(_TestCase):
         text_expected = 'INFO %s' % log_text
         if _get_handler_config_value(handler_name, 'base64_encoding'):
             text_expected = _base64_encode(text_expected)
-        self.assertEqual(message.message_text, text_expected)
+        self.assertEqual(message.content, text_expected)
 
         # confirm that there's no more message in the queue
         with self.assertRaises(StopIteration):
@@ -598,7 +601,7 @@ class QueueStorageHandlerTest(_TestCase):
         text_expected = 'INFO %s' % log_text
         if _get_handler_config_value(handler_name, 'base64_encoding'):
             text_expected = _base64_encode(text_expected)
-        self.assertEqual(message.message_text, text_expected)
+        self.assertEqual(message.content, text_expected)
 
         # confirm that there's no more message in the queue
         with self.assertRaises(StopIteration):
@@ -621,7 +624,7 @@ class QueueStorageHandlerTest(_TestCase):
         text_expected = "INFO %s" % log_text
         if _get_handler_config_value(handler_name, 'base64_encoding'):
             text_expected = _base64_encode(text_expected)
-        self.assertEqual(message.message_text, text_expected)
+        self.assertEqual(message.content, text_expected)
 
         # confirm that there's no more message in the queue
         with self.assertRaises(StopIteration):
@@ -658,13 +661,15 @@ class TableStorageHandlerTest(_TestCase):
         return self._get_formatter_name(handler_name, 'row_key_formatter')
 
     def setUp(self):
-        self.service = TableService(ACCOUNT_NAME, ACCOUNT_KEY)
+        self.service = TableService(account_name=ACCOUNT_NAME,
+                                    account_key=ACCOUNT_KEY,
+                                    is_emulated=_EMULATED)
         # ensure that there's no entity in the table before each test
         tables = set()
         for cfg in LOGGING['handlers'].values():
             if 'table' in cfg:
                 tables.add(cfg['table'])
-        for table in self.service.query_tables():
+        for table in self.service.list_tables():
             if table.name in tables:
                 for entity in self.service.query_entities(table.name):
                     self.service.delete_entity(table.name,

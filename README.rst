@@ -13,7 +13,7 @@ the standard Python logging APIs to Microsoft Azure Storage.
 Dependencies
 ------------
 
-* azure-storage
+* azure-storage 0.33 or newer
 
 Installation
 ------------
@@ -57,7 +57,7 @@ property of a table entity along with some system-defined properties
 | XXXXX        | XXXXXXXXX | YYYY-MM-DD ... | log message |
 +--------------+-----------+----------------+-------------+
 
-* *class* azure_storage_logging.handlers.TableStorageHandler(*account_name=None, account_key=None, protocol='https', table='logs', batch_size=0, extra_properties=None, partition_key_formatter=None, row_key_formatter=None*)
+* *class* azure_storage_logging.handlers.TableStorageHandler(*account_name=None, account_key=None, protocol='https', table='logs', batch_size=0, extra_properties=None, partition_key_formatter=None, row_key_formatter=None, is_emulated=False*)
 
     Returns a new instance of the **TableStorageHandler** class. 
     The instance is initialized with the name and the key of your
@@ -154,7 +154,7 @@ and it pushes log messages to specified Azure storage queue.
 You can pop log messages from the queue in other applications
 using Azure Storage client libraries.
 
-* *class* azure_storage_logging.handlers.QueueStorageHandler(*account_name=None, account_key=None, protocol='https', queue='logs', message_ttl=None, visibility_timeout=None, base64_encoding=False*)
+* *class* azure_storage_logging.handlers.QueueStorageHandler(*account_name=None, account_key=None, protocol='https', queue='logs', message_ttl=None, visibility_timeout=None, base64_encoding=False, is_emulated=False*)
 
     Returns a new instance of the **QueueStorageHandler** class. 
     The instance is initialized with the name and the key of your
@@ -198,7 +198,7 @@ The **BlobStorageRotatingFileHandler** class is a subclass of
 log file rotation and stores the outdated one in Azure blob storage
 container when the current file reaches a certain size.
 
-* *class* azure_storage_logging.handlers.BlobStorageRotatingFileHandler(*filename, mode='a', maxBytes=0, encoding=None, delay=False, account_name=None, account_key=None, protocol='https', container='logs', zip_compression=False, max_connections=1, max_retries=5, retry_wait=1.0*)
+* *class* azure_storage_logging.handlers.BlobStorageRotatingFileHandler(*filename, mode='a', maxBytes=0, encoding=None, delay=False, account_name=None, account_key=None, protocol='https', container='logs', zip_compression=False, max_connections=1, max_retries=5, retry_wait=1.0*, is_emulated=False)
 
     Returns a new instance of the **BlobStorageRotatingFileHandler**
     class. The instance is initialized with the name and the key of your
@@ -265,7 +265,7 @@ The **BlobStorageTimedRotatingFileHandler** class is a subclass of
 log file rotation and stores the outdated one to Azure blob storage
 container at certain timed intervals.
 
-* *class* azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler(*filename, when='h', interval=1, encoding=None, delay=False, utc=False, account_name=None, account_key=None, protocol='https', container='logs', zip_compression=False, max_connections=1, max_retries=5, retry_wait=1.0*)
+* *class* azure_storage_logging.handlers.BlobStorageTimedRotatingFileHandler(*filename, when='h', interval=1, encoding=None, delay=False, utc=False, account_name=None, account_key=None, protocol='https', container='logs', zip_compression=False, max_connections=1, max_retries=5, retry_wait=1.0*, is_emulated=False)
 
     Returns a new instance of the **BlobStorageTimedRotatingFileHandler**
     class. The instance is initialized with the name and the key of your
@@ -410,15 +410,8 @@ three different types of storage from the logger:
 Notice
 ------
 
-* Follow the instructions below if you want to use this package with
-  Azure storage emulator that is bundled with Microsoft Azure SDK:
-
-    * If your application is not going to run on Azure compute
-      emulator, set ``EMULATED`` environment variable as ``True`` at first.
-
-    * specify nothing for the *account_name* and the *account_key*,
-      and specify ``http`` for the *protocol* at initialization of
-      the logging handlers.
+* Set *is_emulated* to ``True`` at initialization of the logging handlers
+  if you want to use this package with Azure storage emulator.
 
 License
 -------

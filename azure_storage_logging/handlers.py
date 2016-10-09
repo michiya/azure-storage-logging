@@ -25,7 +25,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from azure.storage.blob import BlockBlobService
 from azure.storage.blob.models import ContentSettings
 from azure.storage.queue import QueueService
-from azure.storage.table import TableService
+from azure.storage.table import TableBatch, TableService
 
 _PY3 = sys.version_info[0] == 3
 
@@ -48,8 +48,12 @@ class _BlobStorageFileHandler(object):
                   zip_compression=False,
                   max_connections=1,
                   max_retries=5,
-                  retry_wait=1.0):
-        self.service = BlockBlobService(account_name, account_key, protocol)
+                  retry_wait=1.0,
+                  is_emulated=False):
+        self.service = BlockBlobService(account_name=account_name,
+                                        account_key=account_key,
+                                        is_emulated=is_emulated,
+                                        protocol=protocol)
         self.container_created = False
         hostname = gethostname()
         self.meta = {'hostname': hostname.replace('_', '-'),
@@ -82,7 +86,7 @@ class _BlobStorageFileHandler(object):
                 suffix, content_type = '', 'text/plain'
             self.service.create_blob_from_path(container_name=self.container,
                                                blob_name=fileName+suffix,
-                                               file_path=fileName,
+                                               file_path=file_path,
                                                content_settings=ContentSettings(content_type=content_type),
                                                max_connections=self.max_connections
                                                )  # max_retries and retry_wait no longer arguments in azure 0.33
@@ -113,7 +117,8 @@ class BlobStorageRotatingFileHandler(RotatingFileHandler,
                   zip_compression=False,
                   max_connections=1,
                   max_retries=5,
-                  retry_wait=1.0):
+                  retry_wait=1.0,
+                  is_emulated=False):
         meta = {'hostname': gethostname(), 'process': os.getpid()}
         RotatingFileHandler.__init__(self,
                                      filename % meta,
@@ -123,14 +128,15 @@ class BlobStorageRotatingFileHandler(RotatingFileHandler,
                                      encoding=encoding,
                                      delay=delay)
         _BlobStorageFileHandler.__init__(self,
-                                         account_name,
-                                         account_key,
-                                         protocol,
-                                         container,
-                                         zip_compression,
-                                         max_connections,
-                                         max_retries,
-                                         retry_wait)
+                                         account_name=account_name,
+                                         account_key=account_key,
+                                         protocol=protocol,
+                                         container=container,
+                                         zip_compression=zip_compression,
+                                         max_connections=max_connections,
+                                         max_retries=max_retries,
+                                         retry_wait=retry_wait,
+                                         is_emulated=is_emulated)
 
     def doRollover(self):
         """
@@ -172,7 +178,8 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler,
                  zip_compression=False,
                  max_connections=1,
                  max_retries=5,
-                 retry_wait=1.0):
+                 retry_wait=1.0,
+                 is_emulated=False):
         meta = {'hostname': gethostname(), 'process': os.getpid()}
         TimedRotatingFileHandler.__init__(self,
                                           filename % meta,
@@ -183,14 +190,15 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler,
                                           delay=delay,
                                           utc=utc)
         _BlobStorageFileHandler.__init__(self,
-                                         account_name,
-                                         account_key,
-                                         protocol,
-                                         container,
-                                         zip_compression,
-                                         max_connections,
-                                         max_retries,
-                                         retry_wait)
+                                         account_name=account_name,
+                                         account_key=account_key,
+                                         protocol=protocol,
+                                         container=container,
+                                         zip_compression=zip_compression,
+                                         max_connections=max_connections,
+                                         max_retries=max_retries,
+                                         retry_wait=retry_wait,
+                                         is_emulated=is_emulated)
 
     def emit(self, record):
         """
@@ -233,6 +241,7 @@ class QueueStorageHandler(logging.Handler):
                  message_ttl=None,
                  visibility_timeout=None,
                  base64_encoding=False,
+                 is_emulated=False,
                  ):
         """
         Initialize the handler.
@@ -240,6 +249,7 @@ class QueueStorageHandler(logging.Handler):
         logging.Handler.__init__(self)
         self.service = QueueService(account_name=account_name,
                                     account_key=account_key,
+                                    is_emulated=is_emulated,
                                     protocol=protocol)
         self.meta = {'hostname': gethostname(), 'process': os.getpid()}
         self.queue = _formatName(queue, self.meta)
@@ -272,6 +282,10 @@ class QueueStorageHandler(logging.Handler):
     def _encode_text(self, text):
         if self.base64_encoding:
             text = b64encode(text.encode('utf-8')).decode('ascii')
+        # fallback for the breaking change in azure-storage 0.33
+        elif sys.version_info < (3,):
+            if not isinstance(text, unicode):
+                text = text.decode('utf-8')
         return text
 
 
@@ -290,6 +304,7 @@ class TableStorageHandler(logging.Handler):
                  extra_properties=None,
                  partition_key_formatter=None,
                  row_key_formatter=None,
+                 is_emulated=False,
                  ):
         """
         Initialize the handler.
@@ -297,6 +312,7 @@ class TableStorageHandler(logging.Handler):
         logging.Handler.__init__(self)
         self.service = TableService(account_name=account_name,
                                     account_key=account_key,
+                                    is_emulated=is_emulated,
                                     protocol=protocol)
         self.meta = {'hostname': gethostname(), 'process': os.getpid()}
         self.table = _formatName(table, self.meta)
@@ -327,10 +343,10 @@ class TableStorageHandler(logging.Handler):
                 self.extra_property_formatters[extra] = f
                 self.extra_property_names[extra] = self._getFormatName(extra)
         # the storage emulator doesn't support batch operations
-        if batch_size <= 1 or self.service.use_local_storage:
-            self.batch = False
+        if batch_size <= 1 or is_emulated:
+            self.batch = None
         else:
-            self.batch = True
+            self.batch = TableBatch()
             if batch_size > TableStorageHandler.MAX_BATCH_SIZE:
                 self.batch_size = TableStorageHandler.MAX_BATCH_SIZE
             else:
@@ -369,8 +385,6 @@ class TableStorageHandler(logging.Handler):
         try:
             if not self.ready:
                 self.service.create_table(self.table)
-                if self.batch:
-                    self.service.begin_batch()
                 self.ready = True
             # generate partition key for the entity
             record.hostname = self.meta['hostname']
@@ -394,12 +408,13 @@ class TableStorageHandler(logging.Handler):
             copy.rowno = self.rowno
             row_key = self.row_key_formatter.format(copy)
             # add entitiy to the table
-            self.service.insert_or_replace_entity(self.table,
-                                                  partition_key,
-                                                  row_key,
-                                                  entity)
-            # commit the ongoing batch if it reaches the high mark
-            if self.batch:
+            entity['PartitionKey'] = partition_key
+            entity['RowKey'] = row_key
+            if not self.batch:
+                self.service.insert_or_replace_entity(self.table, entity)
+            else:
+                self.batch.insert_or_replace_entity(entity)
+                # commit the ongoing batch if it reaches the high mark
                 self.rowno += 1
                 if self.rowno >= self.batch_size:
                     self.flush()
@@ -414,10 +429,10 @@ class TableStorageHandler(logging.Handler):
         """
         if self.batch and self.rowno > 0:
             try:
-                self.service.commit_batch()
+                self.service.commit_batch(self.table, self.batch)
             finally:
                 self.rowno = 0
-                self.service.begin_batch()
+                self.batch = TableBatch()
 
     def setFormatter(self, fmt):
         """
