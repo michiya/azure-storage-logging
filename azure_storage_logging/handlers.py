@@ -43,6 +43,7 @@ class _BlobStorageFileHandler(object):
     def __init__(self,
                   account_name=None,
                   account_key=None,
+                  sas_token=None,
                   protocol='https',
                   container='logs',
                   zip_compression=False,
@@ -52,6 +53,7 @@ class _BlobStorageFileHandler(object):
                   is_emulated=False):
         self.service = BlockBlobService(account_name=account_name,
                                         account_key=account_key,
+                                        sas_token=sas_token,
                                         is_emulated=is_emulated,
                                         protocol=protocol)
         self.container_created = False
@@ -112,6 +114,7 @@ class BlobStorageRotatingFileHandler(RotatingFileHandler,
                   delay=False,
                   account_name=None,
                   account_key=None,
+                  sas_token=None,
                   protocol='https',
                   container='logs',
                   zip_compression=False,
@@ -130,6 +133,7 @@ class BlobStorageRotatingFileHandler(RotatingFileHandler,
         _BlobStorageFileHandler.__init__(self,
                                          account_name=account_name,
                                          account_key=account_key,
+                                         sas_token=sas_token,
                                          protocol=protocol,
                                          container=container,
                                          zip_compression=zip_compression,
@@ -173,6 +177,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler,
                  utc=False,
                  account_name=None,
                  account_key=None,
+                 sas_token=None,
                  protocol='https',
                  container='logs',
                  zip_compression=False,
@@ -192,6 +197,7 @@ class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler,
         _BlobStorageFileHandler.__init__(self,
                                          account_name=account_name,
                                          account_key=account_key,
+                                         sas_token=sas_token,
                                          protocol=protocol,
                                          container=container,
                                          zip_compression=zip_compression,
@@ -233,9 +239,10 @@ class QueueStorageHandler(logging.Handler):
     """
     Handler class which sends log messages to a Azure Storage queue.
     """
-    def __init__(self, 
+    def __init__(self,
                  account_name=None,
                  account_key=None,
+                 sas_token=None,
                  protocol='https',
                  queue='logs',
                  message_ttl=None,
@@ -249,6 +256,7 @@ class QueueStorageHandler(logging.Handler):
         logging.Handler.__init__(self)
         self.service = QueueService(account_name=account_name,
                                     account_key=account_key,
+                                    sas_token=sas_token,
                                     is_emulated=is_emulated,
                                     protocol=protocol)
         self.meta = {'hostname': gethostname(), 'process': os.getpid()}
@@ -295,9 +303,10 @@ class TableStorageHandler(logging.Handler):
     """
     MAX_BATCH_SIZE = 100
 
-    def __init__(self, 
+    def __init__(self,
                  account_name=None,
                  account_key=None,
+                 sas_token=None,
                  protocol='https',
                  table='logs',
                  batch_size=0,
@@ -312,6 +321,7 @@ class TableStorageHandler(logging.Handler):
         logging.Handler.__init__(self)
         self.service = TableService(account_name=account_name,
                                     account_key=account_key,
+                                    sas_token=sas_token,
                                     is_emulated=is_emulated,
                                     protocol=protocol)
         self.meta = {'hostname': gethostname(), 'process': os.getpid()}
