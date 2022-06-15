@@ -1,4 +1,4 @@
-azure-storage-logging
+azure-storage-logging_updated
 =====================
 
 .. image:: http://img.shields.io/pypi/v/azure-storage-logging.svg?style=flat
@@ -7,20 +7,23 @@ azure-storage-logging
 .. image:: http://img.shields.io/pypi/l/azure-storage-logging.svg?style=flat
     :target: http://www.apache.org/licenses/LICENSE-2.0.html
 
-*azure-storage-logging* provides functionality to send output from
-the standard Python logging APIs to Microsoft Azure Storage.
+*azure-storage-logging_updated* is a fork from *azure-storage-logging* that aims to update the original package
+to provide the functionality to send output from the standard Python logging APIs to Microsoft Azure Storage.
 
 Dependencies
 ------------
 
-* azure-storage 0.33 or newer
+* azure-storage-blob 12.12.0
+* azure-storage-queue 12.3.0
+* azure-storage-file 2.1.0
+* azure-data-tables 12.4.0
 
 Installation
 ------------
 
 Install the package via pip: ::
 
-    pip install azure-storage-logging
+    pip install azure-storage-logging_updated
 
 Usage
 -----
@@ -59,7 +62,7 @@ property of a table entity along with some system-defined properties
 
 * *class* azure_storage_logging.handlers.TableStorageHandler(*account_name=None, account_key=None, protocol='https', table='logs', batch_size=0, extra_properties=None, partition_key_formatter=None, row_key_formatter=None, is_emulated=False*)
 
-    Returns a new instance of the **TableStorageHandler** class. 
+    Returns a new instance of the **TableStorageHandler** class.
     The instance is initialized with the name and the key of your
     Azure Storage account and some optional parameters.
 
@@ -89,10 +92,10 @@ property of a table entity along with some system-defined properties
     *extra_properties*. Here is an example of using extra properties:
 
     ::
-        
+
         import logging
         from azure_storage_logging.handlers import TableStorageHandler
-        
+
         # configure the handler and add it to the logger
         logger = logging.getLogger('example')
         handler = TableStorageHandler(account_name='mystorageaccountname',
@@ -100,7 +103,7 @@ property of a table entity along with some system-defined properties
                                       extra_properties=('%(hostname)s',
                                                         '%(levelname)s'))
         logger.addHandler(handler)
-        
+
         # output log messages
         logger.info('info message')
         logger.warning('warning message')
@@ -156,7 +159,7 @@ using Azure Storage client libraries.
 
 * *class* azure_storage_logging.handlers.QueueStorageHandler(*account_name=None, account_key=None, protocol='https', queue='logs', message_ttl=None, visibility_timeout=None, base64_encoding=False, is_emulated=False*)
 
-    Returns a new instance of the **QueueStorageHandler** class. 
+    Returns a new instance of the **QueueStorageHandler** class.
     The instance is initialized with the name and the key of your
     Azure Storage account and some optional parameters.
 
@@ -171,7 +174,7 @@ using Azure Storage client libraries.
     are supported.
 
     The *message_ttl* specifies the time-to-live interval for the message,
-    in seconds. The maximum time-to-live allowed is 7 days. If this 
+    in seconds. The maximum time-to-live allowed is 7 days. If this
     parameter is omitted, the default time-to-live is 7 days.
 
     The *visibility_timeout* specifies the visibility timeout value,
@@ -180,7 +183,7 @@ using Azure Storage client libraries.
     must be larger than or equal to 0, and cannot be larger than 7 days.
     The *visibility_timeout* cannot be set to a value later than the
     *message_ttl*, and should be set to a value smaller than the
-    *message_ttl*. 
+    *message_ttl*.
 
     The *base64_encoding* specifies the necessity for encoding
     log text in Base64. If you set this to ``True``, Unicode log text
@@ -395,7 +398,7 @@ three different types of storage from the logger:
             },
         }
     }
-    
+
     import logging
     from logging.config import dictConfig
 
@@ -405,7 +408,7 @@ three different types of storage from the logger:
     logger.info('info message')
     logger.warning('warning message')
     logger.error('error message')
-    logger.critical('critical message') 
+    logger.critical('critical message')
 
 Notice
 ------
