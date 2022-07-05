@@ -1,5 +1,5 @@
 azure-storage-logging_updated
-=====================
+=================================
 
 .. image:: http://img.shields.io/pypi/v/azure-storage-logging.svg?style=flat
     :target: https://pypi.python.org/pypi/azure-storage-logging
