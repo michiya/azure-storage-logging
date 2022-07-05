@@ -23,7 +23,7 @@ from socket import gethostname
 from tempfile import mkstemp
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from azure.data.tables import TableServiceClient, TableClient #,TableBatch
+from azure.data.tables import TableServiceClient, TableClient
 
 _PY3 = sys.version_info[0] == 3
 
@@ -60,10 +60,6 @@ class TableStorageHandler(logging.Handler):
         Initialize the handler.
         """
         logging.Handler.__init__(self)
-        #self.service = TableServiceClient(account_name=account_name,
-        #                            account_key=account_key,
-        #                            is_emulated=is_emulated,
-        #                            protocol=protocol)
         self.service = TableServiceClient.from_connection_string(conn_str= conn_str)
         self.connection = conn_str
         self.t_name = table
@@ -164,14 +160,9 @@ class TableStorageHandler(logging.Handler):
             entity['PartitionKey'] = partition_key
             entity['RowKey'] = row_key
             # Now it needs a TableClient for this
-            print(f"DEBUG: This is the entity {entity}")
             t_client = TableClient.from_connection_string(self.connection, self.t_name)
             if not self.batch:
-                debug_data = t_client.create_entity(entity) 
-                print(f"DEBUG: This is the return metadata {debug_data}")
-                #t_client.upsert_entity(self.table, entity)
-                #Change to new table client model
-                #self.service.insert_or_replace_entity(self.table, entity)
+                t_client.create_entity(entity) 
             else:
                 #Change to new table client model (This will probably fail, need to improve batches)
                 self.batch.insert_or_replace_entity(entity)
