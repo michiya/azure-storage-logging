@@ -1,4 +1,5 @@
 # Copyright 2013-2015 Michiya Takahashi
+# Copyright 2022 Abian Rodriguez
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,10 +23,7 @@ from socket import gethostname
 from tempfile import mkstemp
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from azure.storage.blob import BlockBlobService
-from azure.storage.blob.models import ContentSettings
-from azure.storage.queue import QueueService
-from azure.storage.table import TableBatch, TableService
+from azure.data.tables import TableServiceClient, TableClient #,TableBatch
 
 _PY3 = sys.version_info[0] == 3
 
@@ -38,262 +36,13 @@ def _formatName(name, params):
     return name % params
 
 
-class _BlobStorageFileHandler(object):
-
-    def __init__(self,
-                  account_name=None,
-                  account_key=None,
-                  protocol='https',
-                  container='logs',
-                  zip_compression=False,
-                  max_connections=1,
-                  max_retries=5,
-                  retry_wait=1.0,
-                  is_emulated=False):
-        self.service = BlockBlobService(account_name=account_name,
-                                        account_key=account_key,
-                                        is_emulated=is_emulated,
-                                        protocol=protocol)
-        self.container_created = False
-        hostname = gethostname()
-        self.meta = {'hostname': hostname.replace('_', '-'),
-                     'process': os.getpid()}
-        self.container = (container % self.meta).lower()
-        self.meta['hostname'] = hostname
-        self.zip_compression = zip_compression
-        self.max_connections = max_connections
-        self.max_retries = max_retries
-        self.retry_wait = retry_wait
-
-    def put_file_into_storage(self, dirName, fileName):
-        """
-        Ship the outdated log file to the specified blob container.
-        """
-        if not self.container_created:
-            self.service.create_container(self.container)
-            self.container_created = True
-        fd, tmpfile_path = None, ''
-        try:
-            file_path = os.path.join(dirName, fileName)
-            if self.zip_compression:
-                suffix, content_type = '.zip', 'application/zip'
-                fd, tmpfile_path = mkstemp(suffix=suffix)
-                with os.fdopen(fd, 'wb') as f:
-                    with ZipFile(f, 'w', ZIP_DEFLATED) as z:
-                        z.write(file_path, arcname=fileName)
-                file_path = tmpfile_path
-            else:
-                suffix, content_type = '', 'text/plain'
-            self.service.create_blob_from_path(container_name=self.container,
-                                               blob_name=fileName+suffix,
-                                               file_path=file_path,
-                                               content_settings=ContentSettings(content_type=content_type),
-                                               max_connections=self.max_connections
-                                               )  # max_retries and retry_wait no longer arguments in azure 0.33
-        finally:
-            if self.zip_compression and fd:
-                os.remove(tmpfile_path)
-
-
-class BlobStorageRotatingFileHandler(RotatingFileHandler,
-                                         _BlobStorageFileHandler):
-    """
-    Handler for logging to a file, which switches from one file
-    to the next when the current file reaches a certain size.
-
-    The outdated log file is shipped to the specified Azure Storage
-    blob container and removed from the local file system immediately.
-    """
-    def __init__(self,
-                  filename,
-                  mode='a',
-                  maxBytes=0,
-                  encoding=None,
-                  delay=False,
-                  account_name=None,
-                  account_key=None,
-                  protocol='https',
-                  container='logs',
-                  zip_compression=False,
-                  max_connections=1,
-                  max_retries=5,
-                  retry_wait=1.0,
-                  is_emulated=False):
-        meta = {'hostname': gethostname(), 'process': os.getpid()}
-        RotatingFileHandler.__init__(self,
-                                     filename % meta,
-                                     mode=mode,
-                                     maxBytes=maxBytes,
-                                     backupCount=1,
-                                     encoding=encoding,
-                                     delay=delay)
-        _BlobStorageFileHandler.__init__(self,
-                                         account_name=account_name,
-                                         account_key=account_key,
-                                         protocol=protocol,
-                                         container=container,
-                                         zip_compression=zip_compression,
-                                         max_connections=max_connections,
-                                         max_retries=max_retries,
-                                         retry_wait=retry_wait,
-                                         is_emulated=is_emulated)
-
-    def doRollover(self):
-        """
-        Do a rollover, as described in __init__().
-        """
-        if self.stream:
-            self.stream.close()
-            self.stream = None
-        dfn = "%s.%s" % (self.baseFilename,
-                         datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S'))
-        if os.path.exists(self.baseFilename):
-            os.rename(self.baseFilename, dfn)
-            self.put_file_into_storage(*os.path.split(dfn))
-            os.remove(dfn)
-        if not self.delay:
-            self.stream = self._open()
-
-
-class BlobStorageTimedRotatingFileHandler(TimedRotatingFileHandler,
-                                               _BlobStorageFileHandler):
-    """
-    Handler for logging to a file, rotating the log file at certain timed
-    intervals.
-
-    The outdated log file is shipped to the specified Azure Storage
-    blob container and removed from the local file system immediately.
-    """
-    def __init__(self,
-                 filename,
-                 when='h',
-                 interval=1,
-                 encoding=None,
-                 delay=False,
-                 utc=False,
-                 account_name=None,
-                 account_key=None,
-                 protocol='https',
-                 container='logs',
-                 zip_compression=False,
-                 max_connections=1,
-                 max_retries=5,
-                 retry_wait=1.0,
-                 is_emulated=False):
-        meta = {'hostname': gethostname(), 'process': os.getpid()}
-        TimedRotatingFileHandler.__init__(self,
-                                          filename % meta,
-                                          when=when,
-                                          interval=interval,
-                                          backupCount=1,
-                                          encoding=encoding,
-                                          delay=delay,
-                                          utc=utc)
-        _BlobStorageFileHandler.__init__(self,
-                                         account_name=account_name,
-                                         account_key=account_key,
-                                         protocol=protocol,
-                                         container=container,
-                                         zip_compression=zip_compression,
-                                         max_connections=max_connections,
-                                         max_retries=max_retries,
-                                         retry_wait=retry_wait,
-                                         is_emulated=is_emulated)
-
-    def emit(self, record):
-        """
-        Emit a record.
-
-        Output the record to the file, catering for rollover as described
-        in doRollover().
-        """
-        record.hostname = self.meta['hostname']
-        super(BlobStorageTimedRotatingFileHandler, self).emit(record)
-
-    def getFilesToDelete(self):
-        """
-        Determine the files to delete when rolling over.
-        """
-        dirName, baseName = os.path.split(self.baseFilename)
-        fileNames = os.listdir(dirName)
-        result = []
-        prefix = baseName + "."
-        plen = len(prefix)
-        for fileName in fileNames:
-            if fileName[:plen] == prefix:
-                suffix = fileName[plen:]
-                if self.extMatch.match(suffix):
-                    self.put_file_into_storage(dirName, fileName)
-                    result.append(os.path.join(dirName, fileName))
-        # delete the stored log file from the local file system immediately
-        return result
-
-
-class QueueStorageHandler(logging.Handler):
-    """
-    Handler class which sends log messages to a Azure Storage queue.
-    """
-    def __init__(self, 
-                 account_name=None,
-                 account_key=None,
-                 protocol='https',
-                 queue='logs',
-                 message_ttl=None,
-                 visibility_timeout=None,
-                 base64_encoding=False,
-                 is_emulated=False,
-                 ):
-        """
-        Initialize the handler.
-        """
-        logging.Handler.__init__(self)
-        self.service = QueueService(account_name=account_name,
-                                    account_key=account_key,
-                                    is_emulated=is_emulated,
-                                    protocol=protocol)
-        self.meta = {'hostname': gethostname(), 'process': os.getpid()}
-        self.queue = _formatName(queue, self.meta)
-        self.queue_created = False
-        self.message_ttl = message_ttl
-        self.visibility_timeout = visibility_timeout
-        self.base64_encoding = base64_encoding
-
-    def emit(self, record):
-        """
-        Emit a record.
-
-        Format the record and send it to the specified queue.
-        """
-        try:
-            if not self.queue_created:
-                self.service.create_queue(self.queue)
-                self.queue_created = True
-            record.hostname = self.meta['hostname']
-            msg = self._encode_text(self.format(record))
-            self.service.put_message(self.queue,
-                                     msg,
-                                     self.visibility_timeout,
-                                     self.message_ttl)
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            self.handleError(record)
-
-    def _encode_text(self, text):
-        if self.base64_encoding:
-            text = b64encode(text.encode('utf-8')).decode('ascii')
-        # fallback for the breaking change in azure-storage 0.33
-        elif sys.version_info < (3,):
-            if not isinstance(text, unicode):
-                text = text.decode('utf-8')
-        return text
-
-
 class TableStorageHandler(logging.Handler):
     """
     Handler class which writes log messages to a Azure Storage table.
     """
     MAX_BATCH_SIZE = 100
+    connection = None
+    t_name = None
 
     def __init__(self, 
                  account_name=None,
@@ -305,15 +54,19 @@ class TableStorageHandler(logging.Handler):
                  partition_key_formatter=None,
                  row_key_formatter=None,
                  is_emulated=False,
+                 conn_str=None
                  ):
         """
         Initialize the handler.
         """
         logging.Handler.__init__(self)
-        self.service = TableService(account_name=account_name,
-                                    account_key=account_key,
-                                    is_emulated=is_emulated,
-                                    protocol=protocol)
+        #self.service = TableServiceClient(account_name=account_name,
+        #                            account_key=account_key,
+        #                            is_emulated=is_emulated,
+        #                            protocol=protocol)
+        self.service = TableServiceClient.from_connection_string(conn_str= conn_str)
+        self.connection = conn_str
+        self.t_name = table
         self.meta = {'hostname': gethostname(), 'process': os.getpid()}
         self.table = _formatName(table, self.meta)
         self.ready = False
@@ -384,7 +137,7 @@ class TableStorageHandler(logging.Handler):
         """
         try:
             if not self.ready:
-                self.service.create_table(self.table)
+                self.service.create_table_if_not_exists(self.table) #Try to fix the error of table already exists when using just create_table-
                 self.ready = True
             # generate partition key for the entity
             record.hostname = self.meta['hostname']
@@ -410,9 +163,17 @@ class TableStorageHandler(logging.Handler):
             # add entitiy to the table
             entity['PartitionKey'] = partition_key
             entity['RowKey'] = row_key
+            # Now it needs a TableClient for this
+            print(f"DEBUG: This is the entity {entity}")
+            t_client = TableClient.from_connection_string(self.connection, self.t_name)
             if not self.batch:
-                self.service.insert_or_replace_entity(self.table, entity)
+                debug_data = t_client.create_entity(entity) 
+                print(f"DEBUG: This is the return metadata {debug_data}")
+                #t_client.upsert_entity(self.table, entity)
+                #Change to new table client model
+                #self.service.insert_or_replace_entity(self.table, entity)
             else:
+                #Change to new table client model (This will probably fail, need to improve batches)
                 self.batch.insert_or_replace_entity(entity)
                 # commit the ongoing batch if it reaches the high mark
                 self.rowno += 1
