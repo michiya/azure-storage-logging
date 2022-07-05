@@ -18,11 +18,11 @@ CLASSIFIERS=[
 
 setup(
     name='azure-storage-logging_updated',
-    version='0.5.2',
+    version='0.5.3',
     description='Logging handlers to send logs to Microsoft Azure Storage',
     long_description=open('README.rst').read(),
-    author='Michiya Takahashi',
-    author_email='michiya.takahashi@gmail.com',
+    author='Abian Rodriguez',
+    author_email='abiangrodriguez@protonmail.com',
     url='https://github.com/AbianG/azure-storage-logging_updated',
     license='Apache License 2.0',
     packages=['azure_storage_logging'],
